@@ -92,6 +92,8 @@ Area = polyarea(x_contour, y_contour);
 
 ## Ejemplo de Uso
 
+también puede ver el archivo `Principal.m` para ver un ejemplo de funcionamiento.
+
 ### Definir coordenadas de los puntos
 
 ```matlab
