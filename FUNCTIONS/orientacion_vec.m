@@ -3,16 +3,20 @@ function ang = orientacion_vec(x,y,cmx,cmy,graf) %graf = 1 (dirección) | 0 (sin
     xmove = -cmx;
     ymove = -cmy;
     % se mueve todo al origen.
-    x=x + xmove;
-    y=y + ymove;
+    x = x + xmove;
+    y = y + ymove;
+
+    x_ord = x;
+    y_ord = y;
+
     if length(x) == 2
-       %Cuando hay dos inidividuos, la direccion es el primer individuo.
+       %Cuando hay dos individuos, la dirección es el primer individuo.
         resultan = [x(1), y(1)];
     else 
         % Ordenar los puntos alrededor del origen
         [x_ord, y_ord] = ordenar_puntos(0, 0, x, y);
         % Se halla la dirección resultante sumando los vectores
-
+        resultan = [0, 0];
         for i = 1:length(x)-1
             if i==1
                 % Inicializar resultan con los primeros dos puntos ordenados
@@ -25,7 +29,11 @@ function ang = orientacion_vec(x,y,cmx,cmy,graf) %graf = 1 (dirección) | 0 (sin
     end
     %Caso en el que la resultante sea cero
     if resultan(1) == 0 && resultan(2)== 0
-        resultan = [x_ord(1), y_ord(1)];
+        if length(x_ord) >= 1
+            resultan = [x_ord(1), y_ord(1)];
+        else
+            resultan = [0, 0];
+        end
     end
     %Determinar el angulo
     an = atan2(resultan(2) - 0, resultan(1) - 0); 

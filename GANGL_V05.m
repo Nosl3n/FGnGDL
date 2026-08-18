@@ -1,6 +1,7 @@
 function Area = GANGL_V05(x,y,graf,VISTA,per)
     % Añadir rutas para funciones adicionales
-    addpath("FUNCTIONS");
+    % addpath("FUNCTIONS");
+    addpath(fullfile(fileparts(mfilename('fullpath')),'FUNCTIONS'));
 %% Mensajes de depuracion "errores"
     % Verificar que los vectores x e y tienen el mismo tamaño
     if length(x) ~= length(y)

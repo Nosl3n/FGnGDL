@@ -1,11 +1,22 @@
-function [xmod ymod] = entre_personas(minima, ang, dis, x_ord, y_ord)
-%% Errores que pueden suceder al compilar  
+function [xmod, ymod] = entre_personas(minima, ang, dis, x_ord, y_ord)
+%% Errores que pueden suceder al compilar
     % Verificar que los vectores de entrada tienen el mismo tamaño
     if length(ang) ~= length(dis) || length(dis) ~= length(x_ord) || length(x_ord) ~= length(y_ord)
         error('Todos los vectores de entrada deben tener el mismo tamaño.');
     end
+    if length(x_ord) < 2
+        xmod = x_ord;
+        ymod = y_ord;
+        return;
+    end
 %% CODIGO
     % Determinar las distancias angulares entre personas
+    if length(ang) < 2
+        xmod = x_ord;
+        ymod = y_ord;
+        return;
+    end
+
     distancias = separacion(ang);
     eliminar = 0;
     % Encontrar la persona a eliminar basada en la distancia mínima

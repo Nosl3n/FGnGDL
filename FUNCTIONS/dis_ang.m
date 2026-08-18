@@ -8,6 +8,10 @@ function [distancias, angulos_grados] = dis_ang(x, y, xc, yc)
     if length(x) ~= length(y)
         error('Los vectores x e y deben tener el mismo tamaño.');
     end
+
+    x = x(:).';
+    y = y(:).';
+
 %% CODIGO
     % Calcular las distancias euclidianas entre cada punto (x, y) y el punto central (xc, yc)
     distancias = sqrt((x - xc).^2 + (y - yc).^2);

@@ -7,7 +7,8 @@ function distancias = separacion(ang)
     if length(ang) < 2
         error('El vector de ángulos debe contener al menos dos elementos.');
     end
-    %% 
+
+    ang = ang(:).';
     % Agregar el primer ángulo más 360 al final del vector
     ang = [ang, 360 + ang(1)];
     % Prealocar el vector de distancias
