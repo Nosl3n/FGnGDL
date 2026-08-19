@@ -39,7 +39,7 @@ function [xrot, yrot, zrot] = Section_Gaussian(x, y)
     % Filtrar personas muy cercanas entre sí
     for i = 1:length(x)
         [dis, ang] = dis_ang(x_ord, y_ord, xcm, ycm);
-        [x_mod, y_mod] = entre_personas(15, ang, dis, x_ord, y_ord);
+        [x_mod, y_mod] = entre_personas(13, ang, dis, x_ord, y_ord); %angulo minimo de reduccion de personas
         if length(x_mod) == length(x_ord)
             break;
         else
@@ -49,7 +49,7 @@ function [xrot, yrot, zrot] = Section_Gaussian(x, y)
     end
 
     % Completar distribución si hay huecos grandes
-    [x_aum, y_aum] = aumentar_02(70, x_mod, y_mod, xcm, ycm);
+    [x_aum, y_aum] = aumentar_02(40, x_mod, y_mod, xcm, ycm);  %%% separacion maximopara aumentar 70
 
     % Hallar la primera orientación de referencia
     orientacion = 1000;

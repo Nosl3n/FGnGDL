@@ -52,7 +52,8 @@ for i=1:size(MCo,1)
     xin = vals(1:2:end);       % x = posiciones 1,3,5,...
     yin = vals(2:2:end);       % y = posiciones 2,4,6,...
 
-    [xrot, yrot, zrot] = Section_Gaussian(xin, yin);
+    %[xrot, yrot, zrot] = Section_Gaussian(xin, yin); %Modelo del trabajo
+    [xrot, yrot, zrot] = raphael_model(xin, yin); %Modelo de De Sousa
     contour(xrot, yrot, zrot, [0.55, 0.55], 'LineColor', [1 0 0]);
     hold on;
     contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0.5 0]);

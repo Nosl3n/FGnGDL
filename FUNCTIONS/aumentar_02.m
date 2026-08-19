@@ -27,10 +27,10 @@ function [x_aaum, y_aaum] = aumentar_02(maximo, x_ord, y_ord, xcm, ycm)
         for i = 1:length(cambios)
             if cambios(i) == length(nuevas_distancias)
                 angulo = ang1(cambios(i)) + (nuevas_distancias(cambios(i)) / 2);
-                Lnew = dis1(cambios(i)) / 4 + dis1(1) / 4;
+                Lnew = dis1(cambios(i)) / 10 + dis1(1) / 10; %distancia en la que se pone el nuevo punto (aumentar: 4)
             else
                 angulo = ang1(cambios(i)) + (nuevas_distancias(cambios(i)) / 2);
-                Lnew = dis1(cambios(i)) / 4 + dis1(cambios(i) + 1) / 4;
+                Lnew = dis1(cambios(i)) / 10 + dis1(cambios(i) + 1) / 10; %distancia en la que se pone el nuevo punto (aumentar: 4)
             end
             xnew = cos(deg2rad(angulo)) * Lnew + xcm;
             ynew = sin(deg2rad(angulo)) * Lnew + ycm;
