@@ -1,5 +1,5 @@
-function [xrot, yrot, zrot] = Section_Gaussian(x, y)
-    % Section_Gaussian: genera una sección gaussiana rotada y devuelve solo
+function [xrot, yrot, zrot] = Paco_Model(x, y)
+    % Paco_Model: genera una sección gaussiana rotada y devuelve solo
     % los puntos cuya altura z es >= h. Los puntos por debajo del umbral se
     % eliminan (filtro). No se grafica nada.
 
@@ -18,13 +18,19 @@ function [xrot, yrot, zrot] = Section_Gaussian(x, y)
     y = y(:).';
 
     if numel(x) < 2
-        x_sec = [];
-        y_sec = [];
-        z_sec = [];
+        xrot = [];
+        yrot = [];
+        zrot = [];
         return;
     end
 
-    addpath(fullfile(fileparts(mfilename('fullpath')),'FUNCTIONS'));
+    % FUNCTIONS es una carpeta hermana de MODELOS.
+    persistent rutaFuncionesConfigurada
+    if isempty(rutaFuncionesConfigurada)
+        raizProyecto = fileparts(fileparts(mfilename('fullpath')));
+        addpath(fullfile(raizProyecto, 'FUNCTIONS'));
+        rutaFuncionesConfigurada = true;
+    end
 
     % Centro del grupo
     xcm = (max(x) + min(x)) / 2;
@@ -112,39 +118,22 @@ function [xrot, yrot, zrot] = Section_Gaussian(x, y)
 
     % Malla de evaluación
     lado = 5;
-    paso = 0.05;
-    xpos = abs(max(x)) + lado;
-    xneg = abs(min(x)) - lado;
-    ypos = abs(max(y)) + lado;
-    yneg = abs(min(y)) - lado;
+    paso = 0.1;
+    xneg = min(x) - lado;
+    xpos = max(x) + lado;
+    yneg = min(y) - lado;
+    ypos = max(y) + lado;
     [xx, yy] = meshgrid((xneg):paso:(xpos), (yneg):paso:(ypos));
+  
+    theta = mod(rad2deg(atan2(yy - ycm, xx - xcm)), 360);
+    alpha = max(1, min(360, round(theta)));
 
-    tam = size(yy);
-    varianzax = zeros(tam(1), tam(2));
-    varianzay = zeros(tam(1), tam(2));
-    for i = 1:tam(1)
-        for j = 1:tam(2)
-            theta = atan2(yy(i, j) - ycm, xx(i, j) - xcm);
-            theta = mod(rad2deg(theta), 360);
-            alpha = round(theta);
-            if alpha >= 360
-                alpha = 360;
-            elseif alpha <= 1
-                alpha = 1;
-            end
-            varianzax(i, j) = sigma_xx(alpha);
-            varianzay(i, j) = sigma_yy(alpha);
-        end
-    end
-
+    varianzax = sigma_xx(alpha);
+    varianzay = sigma_yy(alpha);
+  
     zz = exp(-(xx - xcm).^2 ./ (2 .* varianzax.^2) - (yy - ycm).^2 ./ (2 .* varianzay.^2));
 
     % Rotar la gaussiana
     [xrot, yrot, zrot] = rotar_gaussiana(xx, yy, zz, rotacion, xcm, ycm);
 
-    % Filtro por altura: solo guardar puntos por encima del umbral h
-    %mask = zrot >= h;
-    %x_sec = xrot(mask);
-    %y_sec = yrot(mask);
-    %z_sec = zrot(mask);
 end

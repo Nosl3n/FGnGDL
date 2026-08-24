@@ -1,14 +1,21 @@
 clc; clearvars; close all;
-
+raizProyecto = fileparts(mfilename('fullpath'));
+addpath(fullfile(raizProyecto,'FUNCTIONS'));
+addpath(fullfile(raizProyecto,'MODELOS'));
 % Parámetros
 h = 0.5;
-li = 10;        % límites [0 li]
-limvec = 10;   % máximo número de personas
+li = 8;        % límites de movimiento [0 li]
+limvec = 15;   % máximo número de personas
+radius = 0.5;  % radio de cada círculo
+
+%Modelo
+
+mo = 1; % Modelo a usar: 1-Paco_Model, 2-De_Sousa_Model, 3-Individual_Group_Model
 
 % Generar datos inic.
 n = randi([2, limvec]);
-x = li * rand(1, n);
-y = li * rand(1, n);
+x = radius + (li - 2*radius) * rand(1, n);
+y = radius + (li - 2*radius) * rand(1, n);
 
 % Velocidades iniciales
 vmax0 = 0.3;
@@ -18,12 +25,11 @@ vy = vmax0*(2*rand(1,n)-1);
 % Gráficos: figura única
 figure('Color','w');
 hold on;
-axis([0 li 0 li]);
+axis([-2 li+5 -2 li+5]);
 axis equal;
 xlabel('x'); ylabel('y');
 
 % Círculo plantilla
-radius = 0.5;
 theta = linspace(0,2*pi,80);
 
 % Crear parches y centros (handles)
@@ -62,11 +68,12 @@ hContourObjs = gobjects(0);
         Zg = griddata(xp, yp, zp, Xg, Yg, 'natural');
     end
 
-% Primer cálculo de la sección gaussiana (se asume Section_Gaussian acepta x,y)
-[x_sec, y_sec, z_sec] = Section_Gaussian(x, y);
+% Primer cálculo de la sección gaussiana
+[x_sec, y_sec, z_sec] = Modelo(x, y, mo); % usando modelo 1 (Paco_Model)
 
 % Preparar y dibujar contornos iniciales
 [Xg, Yg, Zg] = prepareGrid(x_sec, y_sec, z_sec);
+
 if ~isempty(Xg)
     % borrar previos si existen
     delete(hContourObjs(ishandle(hContourObjs)));
@@ -74,19 +81,40 @@ if ~isempty(Xg)
     levels = [h+0.2, h, h-0.2, h-0.35];
     cmap = flipud(hot(numel(levels)));
     colormap(cmap);
-    c = [];
-
     hC = gobjects(0);
     for L = levels
-        hobj = contour(Xg, Yg, Zg, [L L], 'LineWidth', 1.2);
         [~, hobj] = contour(Xg, Yg, Zg, [L L], 'LineWidth', 1.2);
-        hold on;
+        hC(end+1) = hobj; %#ok<SAGROW>
     end
     hContourObjs = hC;
 
 end
 
 % Inicializar parches con posiciones iniciales
+% Separar círculos que hayan nacido superpuestos.
+for iter = 1:8
+    for i = 1:n-1
+        for j = i+1:n
+            dx = x(j) - x(i);
+            dy = y(j) - y(i);
+            d = hypot(dx, dy);
+            minDist = 2*radius;
+            if d < minDist
+                if d < eps
+                    ang = 2*pi*rand;
+                    dx = cos(ang); dy = sin(ang); d = 1;
+                end
+                nx = dx/d; ny = dy/d;
+                correction = (minDist - d)/2;
+                x(i) = x(i) - correction*nx; y(i) = y(i) - correction*ny;
+                x(j) = x(j) + correction*nx; y(j) = y(j) + correction*ny;
+            end
+        end
+    end
+    x = min(max(x, radius), li - radius);
+    y = min(max(y, radius), li - radius);
+end
+
 for k = 1:n
     set(hPatch(k), 'XData', x(k) + radius*cos(theta), 'YData', y(k) + radius*sin(theta));
     set(hCenter(k), 'XData', x(k), 'YData', y(k));
@@ -103,16 +131,51 @@ for step = 1:nSteps
     y = y + vy*dt;
     % rebotes en límites
     for k = 1:n
-        if x(k) < 0
-            x(k) = 0; vx(k) = -vx(k);
-        elseif x(k) > li
-            x(k) = li; vx(k) = -vx(k);
+        if x(k) < radius
+            x(k) = radius; vx(k) = -vx(k);
+        elseif x(k) > li - radius
+            x(k) = li - radius; vx(k) = -vx(k);
         end
-        if y(k) < 0
-            y(k) = 0; vy(k) = -vy(k);
-        elseif y(k) > li
-            y(k) = li; vy(k) = -vy(k);
+        if y(k) < radius
+            y(k) = radius; vy(k) = -vy(k);
+        elseif y(k) > li - radius
+            y(k) = li - radius; vy(k) = -vy(k);
         end
+    end
+
+    % Colisiones elásticas entre círculos del mismo radio.
+    % Se corrige la posición para eliminar cualquier superposición y se
+    % intercambia la componente normal de las velocidades cuando se acercan.
+    for iter = 1:4
+        for i = 1:n-1
+            for j = i+1:n
+                dx = x(j) - x(i);
+                dy = y(j) - y(i);
+                d = hypot(dx, dy);
+                minDist = 2*radius;
+                if d < minDist
+                    if d < eps
+                        ang = 2*pi*rand;
+                        dx = cos(ang); dy = sin(ang); d = 1;
+                    end
+                    nx = dx/d; ny = dy/d;
+
+                    correction = (minDist - d)/2;
+                    x(i) = x(i) - correction*nx; y(i) = y(i) - correction*ny;
+                    x(j) = x(j) + correction*nx; y(j) = y(j) + correction*ny;
+
+                    relativeSpeed = (vx(j) - vx(i))*nx + (vy(j) - vy(i))*ny;
+                    if relativeSpeed < 0
+                        vx(i) = vx(i) + relativeSpeed*nx;
+                        vy(i) = vy(i) + relativeSpeed*ny;
+                        vx(j) = vx(j) - relativeSpeed*nx;
+                        vy(j) = vy(j) - relativeSpeed*ny;
+                    end
+                end
+            end
+        end
+        x = min(max(x, radius), li - radius);
+        y = min(max(y, radius), li - radius);
     end
     % ligera variación aleatoria de velocidad
     vx = vx + 0.02*(rand(1,n)-0.5);
@@ -131,7 +194,7 @@ for step = 1:nSteps
     end
 
     % recalcular sección y actualizar contornos
-    [x_sec, y_sec, z_sec] = Section_Gaussian(x, y);
+[x_sec, y_sec, z_sec] = Modelo(x, y, mo); % usando modelo 2 (De_Sousa_Model)
     [Xg, Yg, Zg] = prepareGrid(x_sec, y_sec, z_sec);
     % borrar contornos antiguos
     delete(hContourObjs(ishandle(hContourObjs)));

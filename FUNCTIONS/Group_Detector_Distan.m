@@ -1,9 +1,9 @@
 
-function MCo = Grupo_detector(x, y)
-%   Grupo_detector Detecta grupos por proximidad y devuelve coordenadas por grupo.
+function MCo = Group_Detector_Distan(x, y)
+%   Group_Detector_Distan Detecta grupos por proximidad y devuelve coordenadas por grupo.
 %   La entrada es un vector de coordendas x=[x1,x2,x3...xn], lo mismo para
 %   y.
-%   MCo = Grupo_detector(x,y) devuelve una matriz donde cada fila corresponde
+%   MCo = Group_Detector_Distan(x,y) devuelve una matriz donde cada fila corresponde
 %   a un grupo y contiene las coordenadas intercaladas [x1 y1 x2 y2 ...]
 %   rellenadas con NaN cuando los grupos tienen distinto tamaño.
 %

@@ -1,4 +1,4 @@
-function [xrot, yrot, zrot] = raphael_model(x, y)
+function [xrot, yrot, zrot] = De_Sousa_Model(x, y)
     if length(x) ~= length(y)
         error('Los vectores x e y deben tener el mismo tamaño.');
     end
@@ -16,7 +16,7 @@ function [xrot, yrot, zrot] = raphael_model(x, y)
         return;
     end
 
-    addpath(fullfile(fileparts(mfilename('fullpath')),'FUNCTIONS'));
+    addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'FUNCTIONS'));
 
     %% ordenar detemrinar el centro del grupo
     xcm = (max(x) + min(x)) / 2;
@@ -36,5 +36,5 @@ function [xrot, yrot, zrot] = raphael_model(x, y)
     variance_left = md+0.5*md;     % Varianza a la izquierda
     variance_rear = md+0.1;     % Varianza atrás
     %% Llamada a la función
-    [xrot, yrot, zrot] = gaussian2_a2_focussed(x,y,xcm, ycm, rotation, variance_front, variance_right, variance_left, variance_rear);
+    [xrot, yrot, zrot] = Assimetric_Gaussian(x, y, xcm, ycm, rotation, variance_front, variance_right, variance_left, variance_rear);
 end

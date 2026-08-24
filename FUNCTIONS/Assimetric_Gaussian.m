@@ -1,4 +1,4 @@
-function [xrot, yrot, zrot] = gaussian2_a2_focussed(x,y,mean_x, mean_y, rotation, variance_front, variance_right, variance_left, variance_rear)
+function [xrot, yrot, zrot] = Assimetric_Gaussian(x, y, mean_x, mean_y, rotation, variance_front, variance_right, variance_left, variance_rear)
     lado = 2.5; %maximo valor de cada lado de la grafica
     paso = 0.1; %Paso de la malla, entre punto a punto
     xpos = abs(max(x))+lado;

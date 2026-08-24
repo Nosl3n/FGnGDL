@@ -1,5 +1,7 @@
-
-% Algoritmo_RGD.m
+raizProyecto = fileparts(mfilename('fullpath'));
+addpath(fullfile(raizProyecto,'FUNCTIONS'));
+addpath(fullfile(raizProyecto,'MODELOS'));
+% SE PRUEVA CADA MODELO POR SEPARADO
 % Defina las coordenadas como vectores fila o columna:
 %x = [0, 1, -1.5, -3, 1.8];  % <-- editar
 %y = [0, 1.2, 1.8, 2, 2.0]; % <-- editar
@@ -7,6 +9,7 @@
 %..................................................................
 li = 10;        % límites [0 li]
 limvec = 20;   % máximo número de personas
+mo = 1;         % 1-Paco_Model, 2-De_Sousa_Model, 3-Individual_Group_Model
 
 % Generar datos inic.
 n = randi([2, limvec]);
@@ -17,7 +20,7 @@ y = li * rand(1, n);
 r_small = 0.5;             % radio de cada punto (m)
 r_large = r_small + 0.45;  % radio del círculo rojo mayor (m)
 
-MCo = Grupo_detector(x, y); %detector de grupos por distancia
+MCo = Group_Detector_Distan(x, y); %detector de grupos por distancia
 disp(MCo);
 
 
@@ -67,12 +70,11 @@ for i=1:size(MCo,1)
     xin = vals(1:2:end);       % x = posiciones 1,3,5,...
     yin = vals(2:2:end);       % y = posiciones 2,4,6,...
 
-    %[xrot, yrot, zrot] = Section_Gaussian(xin, yin);   %Modelo del trabajo
-    [xrot, yrot, zrot] = raphael_model(xin, yin); %Modelo de De Sousa
-    [~, h1] = contour(xrot, yrot, zrot, [0.55, 0.55], 'LineColor', [1 0 0]);
-    [~, h2] = contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0.5 0]);
+    [xrot, yrot, zrot] = Modelo(xin, yin, mo);
+    [~, h1] = contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0 0]); %55
+   % [~, h2] = contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0.5 0]);
     hContours(end+1) = h1; %#ok<SAGROW>
-    hContours(end+1) = h2; %#ok<SAGROW>
+   % hContours(end+1) = h2; %#ok<SAGROW>
 end
 
 % Grafica del centro geometrico
@@ -175,19 +177,18 @@ for t = 1:n_frames
         delete(hContours(ishghandle(hContours)));
     end
     hContours = gobjects(0);
-    MCo = Grupo_detector(x, y);
+    MCo = Group_Detector_Distan(x, y);
     for i = 1:size(MCo, 1)
         row = MCo(i,:);
         vals = row(~isnan(row));
         xin = vals(1:2:end);
         yin = vals(2:2:end);
         if numel(xin) >= 2
-            %[xrot, yrot, zrot] = Section_Gaussian(xin, yin);   %Modelo del trabajo
-            [xrot, yrot, zrot] = raphael_model(xin, yin); %Modelo de De Sousa
-            [~, h1] = contour(xrot, yrot, zrot, [0.55, 0.55], 'LineColor', [1 0 0]);
-            [~, h2] = contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0.5 0]);
+            [xrot, yrot, zrot] = Modelo(xin, yin, mo);
+            [~, h1] = contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0 0]);
+            %[~, h2] = contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0.5 0]);
             hContours(end+1) = h1; %#ok<SAGROW>
-            hContours(end+1) = h2; %#ok<SAGROW>
+            %hContours(end+1) = h2; %#ok<SAGROW>
         end
     end
 
@@ -196,7 +197,7 @@ end
 
 hold off;
 
-% [xrot, yrot, zrot] = Section_Gaussian(xin, yin);
+% [xrot, yrot, zrot] = Paco_Model(xin, yin);
 
 %contour(xrot, yrot, zrot, [0.96, 0.96], 'LineColor', [1 0 0]);
 %hold on;

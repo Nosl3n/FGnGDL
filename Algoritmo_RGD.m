@@ -1,5 +1,5 @@
 
-% Algoritmo_RGD.m
+% SE PRUEBA CADA MODELO POR SEPARADO
 % Defina las coordenadas como vectores fila o columna:
 %x = [0, 1, -1.5, -3, 1.8];  % <-- editar
 %y = [0, 1.2, 1.8, 2, 2.0]; % <-- editar
@@ -7,17 +7,35 @@
 %..................................................................
 li = 10;        % límites [0 li]
 limvec = 20;   % máximo número de personas
+mo = 1;         % 1-Paco_Model, 2-De_Sousa_Model, 3-Individual_Group_Model
+r_small = 0.5;  % radio de cada punto (m)
+nivel = 0.4;    % único nivel de contorno que se dibuja
 
-% Generar datos inic.
+% Generar posiciones iniciales sin superposición entre círculos.
 n = randi([2, limvec]);
-x = li * rand(1, n);
-y = li * rand(1, n);
+x = zeros(1, n);
+y = zeros(1, n);
+for k = 1:n
+    colocado = false;
+    for intento = 1:10000
+        xk = r_small + (li - 2*r_small) * rand;
+        yk = r_small + (li - 2*r_small) * rand;
+        if k == 1 || all(hypot(x(1:k-1) - xk, y(1:k-1) - yk) >= 2*r_small)
+            x(k) = xk;
+            y(k) = yk;
+            colocado = true;
+            break;
+        end
+    end
+    if ~colocado
+        error('No fue posible generar %d círculos sin superposición.', n);
+    end
+end
 %.................................................................
 
-r_small = 0.5;             % radio de cada punto (m)
 r_large = r_small + 0.45;  % radio del círculo rojo mayor (m)
 
-MCo = Grupo_detector(x, y); %detector de grupos por distancia
+MCo = Group_Detector_Distan(x, y); %detector de grupos por distancia
 disp(MCo);
 
 
@@ -52,11 +70,8 @@ for i=1:size(MCo,1)
     xin = vals(1:2:end);       % x = posiciones 1,3,5,...
     yin = vals(2:2:end);       % y = posiciones 2,4,6,...
 
-    %[xrot, yrot, zrot] = Section_Gaussian(xin, yin); %Modelo del trabajo
-    [xrot, yrot, zrot] = raphael_model(xin, yin); %Modelo de De Sousa
-    contour(xrot, yrot, zrot, [0.55, 0.55], 'LineColor', [1 0 0]);
-    hold on;
-    contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0.5 0]);
+    [xrot, yrot, zrot] = Modelo(xin, yin, mo);
+    contour(xrot, yrot, zrot, [nivel, nivel], 'LineColor', [1 0 0]);
     hold on;
 end
 
@@ -70,10 +85,3 @@ xlim([min(x)-pad, max(x)+pad]);
 ylim([min(y)-pad, max(y)+pad]);
 
 hold off;
-
-% [xrot, yrot, zrot] = Section_Gaussian(xin, yin);
-
-%contour(xrot, yrot, zrot, [0.96, 0.96], 'LineColor', [1 0 0]);
-%hold on;
-%contour(xrot, yrot, zrot, [0.9, 0.9], 'LineColor', [1 0.5 0]);
-%hold on;
