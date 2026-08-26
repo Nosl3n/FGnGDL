@@ -20,7 +20,7 @@ function [xrot, yrot, zrot] = Individual_Group_Model(x, y)
 
     % Malla de evaluación
     lado = 5;
-    paso = 0.05;
+    paso = 0.1;
     xpos = abs(max(x)) + lado;
     xneg = -abs(min(x)) - lado;
     ypos = abs(max(y)) + lado;
@@ -28,7 +28,7 @@ function [xrot, yrot, zrot] = Individual_Group_Model(x, y)
     [xx, yy] = meshgrid((xneg):paso:(xpos), (yneg):paso:(ypos));
 
     % Gaussiana circular por persona y suma total (sigma constante)
-    sigma = 0.5;
+    sigma = 0.75;
 
     zz = zeros(size(xx));
     for i = 1:numel(x)

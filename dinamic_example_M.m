@@ -9,7 +9,7 @@ addpath(fullfile(raizProyecto,'MODELOS'));
 %..................................................................
 li = 10;        % límites [0 li]
 limvec = 20;   % máximo número de personas
-mo = 1;         % 1-Paco_Model, 2-De_Sousa_Model, 3-Individual_Group_Model
+mo = 2;         % 1-Paco_Model, 2-De_Sousa_Model, 3-Individual_Group_Model
 
 % Generar datos inic.
 n = randi([2, limvec]);
@@ -70,11 +70,17 @@ for i=1:size(MCo,1)
     xin = vals(1:2:end);       % x = posiciones 1,3,5,...
     yin = vals(2:2:end);       % y = posiciones 2,4,6,...
 
-    [xrot, yrot, zrot] = Modelo(xin, yin, mo);
+    [xrot, yrot, zrot] = Modelo(xin, yin, 1);
+    [xro, yro, zro] = Modelo(xin, yin, 2);
+    [xr, yr, zr] = Modelo(xin, yin, 3);
+
     [~, h1] = contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0 0]); %55
-   % [~, h2] = contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0.5 0]);
+    [~, h2] = contour(xro, yro, zro, [0.4, 0.4], 'LineColor', [0 0 1]);
+    [~, h3] = contour(xr, yr, zr, [0.2, 0.2], 'LineColor', [0 1 0]);
+
     hContours(end+1) = h1; %#ok<SAGROW>
-   % hContours(end+1) = h2; %#ok<SAGROW>
+    hContours(end+1) = h2; %#ok<SAGROW>
+    hContours(end+1) = h3; %#ok<SAGROW>
 end
 
 % Grafica del centro geometrico
@@ -184,11 +190,16 @@ for t = 1:n_frames
         xin = vals(1:2:end);
         yin = vals(2:2:end);
         if numel(xin) >= 2
-            [xrot, yrot, zrot] = Modelo(xin, yin, mo);
+            [xrot, yrot, zrot] = Modelo(xin, yin, 1);
+            [xro, yro, zro] = Modelo(xin, yin, 2);
+            [xr, yr, zr] = Modelo(xin, yin, 3);
             [~, h1] = contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0 0]);
-            %[~, h2] = contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0.5 0]);
+            [~, h2] = contour(xro, yro, zro, [0.4, 0.4], 'LineColor', [0 0 1]);
+            [~, h3] = contour(xr, yr, zr, [0.2, 0.2], 'LineColor', [0 1 0]);
+
             hContours(end+1) = h1; %#ok<SAGROW>
-            %hContours(end+1) = h2; %#ok<SAGROW>
+            hContours(end+1) = h2; %#ok<SAGROW>
+            hContours(end+1) = h3; %#ok<SAGROW>
         end
     end
 

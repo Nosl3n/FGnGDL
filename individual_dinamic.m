@@ -5,12 +5,12 @@ addpath(fullfile(raizProyecto,'MODELOS'));
 % Parámetros
 h = 0.5;
 li = 8;        % límites de movimiento [0 li]
-limvec = 15;   % máximo número de personas
+limvec = 10;   % máximo número de personas
 radius = 0.5;  % radio de cada círculo
 
 %Modelo
 
-mo = 1; % Modelo a usar: 1-Paco_Model, 2-De_Sousa_Model, 3-Individual_Group_Model
+mo = 4; % Modelo a usar: 1-Paco_Model, 2-De_Sousa_Model, 3-Individual_Group_Model
 
 % Generar datos inic.
 n = randi([2, limvec]);
@@ -194,7 +194,8 @@ for step = 1:nSteps
     end
 
     % recalcular sección y actualizar contornos
-[x_sec, y_sec, z_sec] = Modelo(x, y, mo); % usando modelo 2 (De_Sousa_Model)
+    [x_sec, y_sec, z_sec] = Modelo(x, y, mo); % usando modelo 2 (De_Sousa_Model)
+    
     [Xg, Yg, Zg] = prepareGrid(x_sec, y_sec, z_sec);
     % borrar contornos antiguos
     delete(hContourObjs(ishandle(hContourObjs)));

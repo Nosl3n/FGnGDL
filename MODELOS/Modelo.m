@@ -5,23 +5,14 @@ function [xrot, yrot, zrot] = Modelo(x, y, m)
 %       1 - Paco_Model
 %       2 - De_Sousa_Model
 %       3 - Individual_Group_Model
-
-    % Dejar disponibles los modelos y sus utilidades sin depender de la
-    % carpeta de trabajo desde la que se ejecute el script.
-    persistent rutasConfiguradas
-    if isempty(rutasConfiguradas)
-        raizProyecto = fileparts(mfilename('fullpath'));
-        addpath(fullfile(raizProyecto, 'MODELOS'));
-        addpath(fullfile(raizProyecto, 'FUNCTIONS'));
-        rutasConfiguradas = true;
-    end
+%       4 - Aracelly_model
 
     if nargin ~= 3
         error('Modelo requiere tres entradas: x, y y m.');
     end
 
     if ~isnumeric(m) || ~isscalar(m) || ~isfinite(m) || m ~= fix(m)
-        error('m debe ser un número entero: 1, 2 o 3.');
+        error('m debe ser un número entero: 1, 2, 3 o 4.');
     end
 
     switch m
@@ -31,7 +22,9 @@ function [xrot, yrot, zrot] = Modelo(x, y, m)
             [xrot, yrot, zrot] = De_Sousa_Model(x, y);
         case 3
             [xrot, yrot, zrot] = Individual_Group_Model(x, y);
+        case 4
+            [xrot, yrot, zrot] = Aracelly_model(x, y);
         otherwise
-            error('Modelo no válido. Use 1 (Paco_Model), 2 (De_Sousa_Model) o 3 (Individual_Group_Model).');
+            error('Modelo no válido. Use 1 (Paco_Model), 2 (De_Sousa_Model), 3 (Individual_Group_Model) o 4 (Aracelly_model).');
     end
 end

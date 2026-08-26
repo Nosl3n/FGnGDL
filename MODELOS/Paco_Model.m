@@ -3,15 +3,11 @@ function [xrot, yrot, zrot] = Paco_Model(x, y)
     % los puntos cuya altura z es >= h. Los puntos por debajo del umbral se
     % eliminan (filtro). No se grafica nada.
 
-    if nargin < 3 || isempty(h)
-        h = 0.58;
-    end
-
     if length(x) ~= length(y)
         error('Los vectores x e y deben tener el mismo tamaño.');
     end
-    if ~isnumeric(x) || ~isnumeric(y) || ~isnumeric(h)
-        error('x, y y h deben ser numéricos.');
+    if ~isnumeric(x) || ~isnumeric(y)
+        error('x e y deben ser numéricos.');
     end
 
     x = x(:).';
@@ -22,14 +18,6 @@ function [xrot, yrot, zrot] = Paco_Model(x, y)
         yrot = [];
         zrot = [];
         return;
-    end
-
-    % FUNCTIONS es una carpeta hermana de MODELOS.
-    persistent rutaFuncionesConfigurada
-    if isempty(rutaFuncionesConfigurada)
-        raizProyecto = fileparts(fileparts(mfilename('fullpath')));
-        addpath(fullfile(raizProyecto, 'FUNCTIONS'));
-        rutaFuncionesConfigurada = true;
     end
 
     % Centro del grupo

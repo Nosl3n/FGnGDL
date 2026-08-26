@@ -1,4 +1,6 @@
-
+raizProyecto = fileparts(mfilename('fullpath'));
+addpath(fullfile(raizProyecto,'FUNCTIONS'));
+addpath(fullfile(raizProyecto,'MODELOS'));
 % SE PRUEBA CADA MODELO POR SEPARADO
 % Defina las coordenadas como vectores fila o columna:
 %x = [0, 1, -1.5, -3, 1.8];  % <-- editar
@@ -69,9 +71,12 @@ for i=1:size(MCo,1)
     vals = row(~isnan(row));   % quitar NaN
     xin = vals(1:2:end);       % x = posiciones 1,3,5,...
     yin = vals(2:2:end);       % y = posiciones 2,4,6,...
-
-    [xrot, yrot, zrot] = Modelo(xin, yin, mo);
-    contour(xrot, yrot, zrot, [nivel, nivel], 'LineColor', [1 0 0]);
+    [xrot, yrot, zrot] = Modelo(xin, yin, 1);
+    [xro, yro, zro] = Modelo(xin, yin, 2);
+    [xr, yr, zr] = Modelo(xin, yin, 3);
+    [~, h1] = contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0 0]);
+    [~, h2] = contour(xro, yro, zro, [0.4, 0.4], 'LineColor', [0 0 1]);
+    [~, h3] = contour(xr, yr, zr, [0.2, 0.2], 'LineColor', [0 1 0]);
     hold on;
 end
 
