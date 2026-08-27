@@ -3,9 +3,9 @@ addpath(fullfile(raizProyecto,'FUNCTIONS'));
 addpath(fullfile(raizProyecto,'MODELOS'));
 % SE PRUEVA CADA MODELO POR SEPARADO
 % Defina las coordenadas como vectores fila o columna:
-x = [5, 4];  % <-- editar
-y = [4, 3]; % <-- editar
-theta = [200 45];
+x = [4.5, 4, 3, 2];  % <-- editar
+y = [1, -1, 0, 1]; % <-- editar
+theta = [200 45 30 15];
 n= length(x);
 
 % Parámetros visuales de la silueta
@@ -21,7 +21,7 @@ red_zone_radius = 0.45 + half_len; % 0.45 + half_len (m)
 %..................................................................
 li = 10;        % límites [0 li]
 limvec = 20;   % máximo número de personas
-mo = 2;         % 1-Paco_Model, 2-De_Sousa_Model, 3-Individual_Group_Model
+mo = 4;         % 1-Paco_Model, 2-De_Sousa_Model, 3-Individual_Group_Model
 
 %.................................................................
 
@@ -43,12 +43,15 @@ title('Generacion de zonas proxemicas cuando las personas estan en movimiento');
 % theta = [theta1, theta2, ...] (igual tamaño que x,y). Si no existe,
 % se acepta 'orient' ya en radianes. Si ninguna existe, por defecto 0.
 if exist('theta','var') && numel(theta) == n
-    ang_orient = deg2rad(theta(:)'); % theta en grados -> radianes
+    theta_deg = theta(:)';           % conservar en grados para Individual_model
+    ang_orient = deg2rad(theta_deg); % theta en grados -> radianes
 elseif exist('orient', 'var') && numel(orient) == n
-    ang_orient = orient(:)'; % usar variable externa ya en radianes
+    ang_orient = orient(:)';               % usar variable externa ya en radianes
+    theta_deg = ang_orient * 180 / pi;     % convertir a grados para Individual_model
 else
     % orientaciones por defecto (mirando hacia +x)
     ang_orient = zeros(1,n);
+    theta_deg = zeros(1,n);
 end
 
 % Muestreo angular para dibujar círculos y semicírculos
@@ -111,7 +114,7 @@ for k = 1:length(x)
     quiver(xk, yk, half_len*0.9*cos(phi), half_len*0.9*sin(phi), 0, 'k', 'LineWidth', 0.8, 'MaxHeadSize',0.5);
 end
 
-% grafica gaussianas
+% Graficar curvas grupales existentes
 hContours = gobjects(0);
 for i=1:size(MCo,1)
     row = MCo(i,:);            % primera fila
@@ -119,11 +122,18 @@ for i=1:size(MCo,1)
     xin = vals(1:2:end);       % x = posiciones 1,3,5,...
     yin = vals(2:2:end);       % y = posiciones 2,4,6,...
 
-    [xrot, yrot, zrot] = Modelo(xin, yin, mo);
+    %[xrot, yrot, zrot] = Modelo(xin, yin, mo);
+    [xrot, yrot, zrot] = Aracelly_model_theta(xin, yin, theta);
     [~, h1] = contour(xrot, yrot, zrot, [0.6, 0.6], 'LineColor', [1 0 0]); %55
-   % [~, h2] = contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0.5 0]);
     hContours(end+1) = h1; %#ok<SAGROW>
-   % hContours(end+1) = h2; %#ok<SAGROW>
+end
+
+% Además: para cada persona, curva de nivel h = 0.5 de Individual_model
+hContoursIndividual = gobjects(1, n);
+for k = 1:n
+    [xrot, yrot, zrot] = Individual_model(x(k), y(k), theta(k));
+    [~, hContoursIndividual(k)] = contour(xrot, yrot, zrot, [0.75, 0.75], ...
+        'LineColor', [1 0 1], 'LineWidth', 1.2);
 end
 
 % Grafica del centro geometrico

@@ -113,76 +113,37 @@ Area = GANGL_V05(x, y, 1, 3, 1);
 fprintf("Área: %f", Area);
 ```
 
-## Cambios recientes (auto-generado)
-Fecha: 2026-08-26
+## Cambios recientes
+Fecha: 2026-08-27
 
-Resumen de archivos modificados / añadidos (según git status):
-
-- M FUNCTIONS/Assimetric_Gaussian.m
-- M MODELOS/Individual_Group_Model.m
-- M MODELOS/Modelo.m
-- M MODELOS/Paco_Model.m
-- RD Algoritmo_RGD_mv.m -> dinamic_exaple.m (rename/duplicado)
-- RM Principal.m -> individual_dinamic.m (rename/moved)
-- R  Algoritmo_RGD.m -> static_example.m (rename)
-- ?? Experimento_01.m (nuevo)
-- ?? MODELOS/Aracelly_model.m (nuevo/untracked)
-- ?? analisis_algoritmo_gaussianas_grupales.md (nuevo)
-- ?? dinamic_example.m (nuevo)
-- ?? dinamic_example_M.m (nuevo)
-- ?? individual_dinamic_3d.m (nuevo)
-- ?? individual_dinamic_M.m (nuevo)
-- ?? modelo_humano.m (nuevo)
-- ?? static_example_M.m (nuevo)
-
-Notas y descripción de cambios relevantes (detallado para los archivos desarrollados en esta sesión):
-
-- Experimento_01.m (nuevo)
-  - Script para crear una simulación controlada con un número fijo de personas (N = 7 por defecto).
-  - Posiciones iniciales editables en la variable positions_init (N x 2).
-  - Representación de cada persona como triángulo orientado (vista aérea).
-  - Integración con MODELOS/Modelo.m para graficar un único modelo proxémico (uso de Modelo(x,y,m)).
-  - Parámetros de simulación configurables (duration, fps). Nota: el script fue adaptado durante la sesión — revisarlo antes de usar en producción.
-
-- modelo_humano.m (nuevo/modificado)
-  - Script estático para dibujar personas en vista superior sin animación.
-  - Entrada: vectores x, y (posiciones) y theta (orientaciones en grados) o orient (en radianes).
-  - Representación por "capsule" (rectángulo con extremos semicirculares) que simula la anchura de hombros; la cápsula está centrada en (x,y) y el lado largo queda perpendicular a la orientación (anchura lateral).
-  - Círculo central (radio = 0.1525 m) representando la cabeza/torso (se pinta encima de la cápsula).
-  - Zona amarilla: círculo relleno (radio = 0.45 + 0.1525/4) pintado debajo del cuerpo (opacidad configurable).
-  - Zona roja: círculo relleno más grande (radio = 0.45 + half_len) pintado debajo de la amarilla (opacidad configurable).
-  - Flecha (quiver) que indica la orientación (apunta hacia theta).
-  - Soporta definición manual de orientaciones: definir theta = [t1, t2, ...] en grados antes de ejecutar el script.
-
-- MODELOS/* (archivos modificados)
-  - Varios archivos bajo MODELOS aparecen como modificados: puede incluir correcciones o actualizaciones del comportamiento de los modelos proxémicos (Paco_Model, Individual_Group_Model, Modelo.m, etc.). Revisar estas funciones si se necesita compatibilidad con Experimento_01 o modelo_humano.
-
-- Archivos renombrados/movidos
-  - Algoritmo_RGD_mv.m fue renombrado a dinamic_exaple.m (RD)
-  - Principal.m fue renombrado a individual_dinamic.m (RM)
-  - Algoritmo_RGD.m renombrado a static_example.m (R)
-  - Verificar estas renombraciones para mantener scripts que llamen a los nombres anteriores.
-
-Sugerencias de uso rápido
-- Para dibujar un conjunto de personas con orientaciones en grados:
+### 1) `MODELOS/Individual_model.m`
+- Se actualizó la firma a:
 
 ```matlab
-x = [1, 2, 3];
-y = [1, 1.5, 2];
-theta = [0, 45, 135]; % grados
-run('modelo_humano.m');
+[xrot, yrot, zrot] = Individual_model(x, y, theta)
 ```
 
-- Para probar el ejemplo estático/experimental:
-  - Editar positions_init en Experimento_01.m y ejecutar el script en MATLAB/Octave.
-  - Ajustar model_id para seleccionar el modelo proxémico (ver MODELOS/Modelo.m).
+- Ahora recibe una sola persona (`x`, `y` escalares) y su orientación `theta` en grados.
+- La gaussiana se genera primero con orientación base `0` y luego se rota con `theta`, para mantener forma consistente entre orientaciones.
+- Mantiene la misma salida (`xrot`, `yrot`, `zrot`).
 
-Notas finales
-- Este resumen fue generado automáticamente a partir del estado git del repositorio en la fecha indicada. Para más detalles ver los diffs con `git diff` o revisar cada archivo directamente.
+### 2) `MODELOS/Aracelly_model_theta.m`
+- Se corrigió para usar explícitamente `theta` de entrada por persona (en grados).
+- Ya no calcula la orientación mirando al centro del grupo.
+- Se añadió validación de tamaño: `theta` debe tener el mismo número de elementos que `x` e `y`.
+- La salida sigue siendo la malla global de la mezcla gaussiana (`xrot`, `yrot`, `zrot`).
 
----
+### 3) `modelo_humano.m`
+- Se integró el uso de orientaciones para los modelos:
+  - Curva grupal usando `Aracelly_model_theta(...)`.
+  - Curva individual por persona llamando `Individual_model(x(k), y(k), theta(k))`.
+- Se añadieron curvas de contorno individuales (corte en nivel `h`) para cada persona.
+- Se mantiene la visualización de cuerpo, zonas proxémicas y flecha de orientación.
 
-
-
-
-
+### Ejemplo rápido
+```matlab
+x = [4.5, 4, 3, 2];
+y = [1, -1, 0, 1];
+theta = [200, 45, 30, 15]; % grados
+run('modelo_humano.m');
+```
