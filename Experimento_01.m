@@ -3,18 +3,18 @@ addpath(fullfile(raizProyecto,'FUNCTIONS'));
 addpath(fullfile(raizProyecto,'MODELOS'));
 % SE PRUEVA CADA MODELO POR SEPARADO
 % Defina las coordenadas como vectores fila o columna:
-x = [0, 1, -1.5, -3, 1.8];  % <-- editar
-y = [0, 1.2, 1.8, 2, 2.0]; % <-- editar
+x = [2.5, 4, 3.5, 8, 8, 7, 7];  % <-- editar
+y = [3, 2.5, 3, 6, 7, 5, 6]; % <-- editar
 n= length(x);
+homeX = x;  % posición de referencia de cada persona: no cambia durante la
+homeY = y;  % simulación; cada persona ronda alrededor de su propio "homeX,homeY"
 %..................................................................
 li = 10;        % límites [0 li]
 limvec = 20;   % máximo número de personas
 mo = 3;         % 1-Paco_Model, 2-De_Sousa_Model, 3-Individual_Group_Model
 
 %.................................................................
-
 r_small = 0.5;             % radio de cada punto (m)
-r_large = r_small + 0.45;  % radio del círculo rojo mayor (m)
 
 MCo = Group_Detector_Distan(x, y); %detector de grupos por distancia
 disp(MCo);
@@ -22,17 +22,26 @@ disp(MCo);
 
 %% ----------------------- GRAFICO
 
-theta = linspace(0,2*pi,360);
-
 figure; hold on; axis equal; grid on;
 xlabel('X (m)'); ylabel('Y (m)');
 title('Generacion de zonas proxemicas cuando las personas estan en movimiento');
 
 % Parámetros de movimiento (personas)
 n_frames = 300;   % cantidad de cuadros de animación
-min_speed = 0.02; % velocidad mínima (m/cuadro)
-max_speed = 0.10; % velocidad máxima (m/cuadro)
-noise_gain = 0.01; % variación suave de dirección/velocidad (m/cuadro)
+min_speed = 0.01; % velocidad mínima (m/cuadro)
+max_speed = 0.05; % velocidad máxima (m/cuadro)
+noise_gain = 0.005; % variación suave de dirección/velocidad (m/cuadro)
+home_pull = 0.02; % intensidad del tirón hacia la posición inicial (por
+                   % metro de distancia); más alto = ronda más apretado
+
+% Geometría de la "columna" del cuerpo para la colisión entre personas:
+% deben coincidir con los parámetros de la cápsula usada en
+% Individual_Human_Model.m (L_BB, rect_width) para que el rebote entre
+% personas respete la forma real del cuerpo y no un círculo genérico.
+L_BB = 0.435;
+rect_width = 0.12;
+cap_r = rect_width / 2;        % radio de los extremos semicirculares
+core_half = L_BB/2 - cap_r;    % mitad de la columna recta de la cápsula
 
 % Estado dinámico inicial: velocidades con dirección aleatoria
 ang0 = 2*pi*rand(1, n);
@@ -40,32 +49,15 @@ spd0 = min_speed + (max_speed - min_speed) * rand(1, n);
 vx = spd0 .* cos(ang0);
 vy = spd0 .* sin(ang0);
 
-% Dibujar cada persona como una silueta (cabeza y torso).
+% Dibujar cada persona (silueta + gaussiana individual) con Individual_Human_Model.
+% La orientación de cada persona se toma de la dirección de su velocidad inicial.
 % r_small sigue representando el espacio físico usado en las colisiones.
-hBody = gobjects(1, length(x));
-hHead = gobjects(1, length(x));
-personColor = [0 0.4470 0.7410];
-headRadius = 0.11;
-bodyHalfWidth = 0.20;
-bodyBottom = -0.25;
-bodyTop = 0.10;
-for k = 1:length(x)
-    xk = x(k);
-    yk = y(k);
-    bodyX = xk + [-bodyHalfWidth, bodyHalfWidth, bodyHalfWidth*0.70, -bodyHalfWidth*0.70];
-    bodyY = yk + [bodyBottom, bodyBottom, bodyTop, bodyTop];
-    hBody(k) = fill(bodyX, bodyY, personColor, 'EdgeColor', 'k', 'LineWidth', 0.6);
-    headX = xk + headRadius*cos(theta);
-    headY = yk + 0.25 + headRadius*sin(theta);
-    hHead(k) = fill(headX, headY, [1.0 0.80 0.62], 'EdgeColor', 'k', 'LineWidth', 0.6);
-    % círculo rojo mayor centrado en el mismo punto (sin relleno)
-    xR = xk + r_large*cos(theta);
-    yR = yk + r_large*sin(theta);
-    %plot(xR, yR, 'r-', 'LineWidth',0.5);
+theta_deg = atan2d(vy, vx);
+for k = 1:n
+    Individual_Human_Model(x(k), y(k), theta_deg(k), 1);
 end
 
-% grafica gaussianas
-hContours = gobjects(0);
+% grafica gaussianas de grupo
 for i=1:size(MCo,1)
     row = MCo(i,:);            % primera fila
     vals = row(~isnan(row));   % quitar NaN
@@ -73,25 +65,78 @@ for i=1:size(MCo,1)
     yin = vals(2:2:end);       % y = posiciones 2,4,6,...
 
     [xrot, yrot, zrot] = Modelo(xin, yin, mo);
-    [~, h1] = contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0 0]); %55
-   % [~, h2] = contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0.5 0]);
-    hContours(end+1) = h1; %#ok<SAGROW>
-   % hContours(end+1) = h2; %#ok<SAGROW>
+    contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0 0]); %55
 end
 
-% Grafica del centro geometrico
-%plot(XC, YC, 'kp', 'MarkerFaceColor','y', 'MarkerSize',12);
-%text(XC, YC, '  CG', 'FontWeight','bold', 'Color','k');
+%% ----------------------- ROBOT: PLANIFICACIÓN DE TRAYECTORIA CON A*
+% El robot debe ir de start_pos a goal_pos sin cruzar ninguna zona
+% proxémica (ni individual ni grupal). Como las personas se siguen
+% moviendo, la trayectoria se replanifica periódicamente (ver
+% replanInterval dentro del bucle de animación) usando sus posiciones
+% actuales, para que el camino se mantenga libre de zonas proxémicas.
+start_pos = [0, 0];
+goal_pos  = [9, 9];
+
+% Varianzas proxémicas individuales (mismas que Individual_Human_Model)
+sigma_h = 0.9;
+sigma_s = 0.6;
+umbral_individual = 0.75; % mismo nivel que dibuja el contorno magenta
+umbral_grupal     = 0.4;  % mismo nivel que dibuja el contorno rojo de grupo
+cellSize = 0.25;          % resolución de la grilla de A* (m)
+
+pathXY = PlanPath(x, y, theta_deg, MCo, mo, li, sigma_h, sigma_s, ...
+    umbral_individual, umbral_grupal, cellSize, start_pos, goal_pos);
+if isempty(pathXY)
+    error('A* no encontró una trayectoria libre de zonas proxémicas.');
+end
+
+segLengths = hypot(diff(pathXY(:,1)), diff(pathXY(:,2)));
+cumLen = [0; cumsum(segLengths)];
+totalLen = cumLen(end);
+
+% Velocidad de crucero de un robot en navegación social: por debajo de la
+% marcha humana normal (~1.2-1.4 m/s) para resultar predecible y no
+% invasivo cerca de personas (rango típico 0.3-0.8 m/s, p.ej. Kruse et
+% al., 2013, "Human-aware robot navigation: A survey").
+v_robot = 0.6;    % m/s
+dt_robot = 0.1;   % s por cuadro de la simulación
+goal_tol = 0.15;  % m, tolerancia para considerar alcanzada la meta
+
+traveled = 0;
+robotPos = pathXY(1, :);
+robotTheta = atan2d(pathXY(2,2)-pathXY(1,2), pathXY(2,1)-pathXY(1,1));
+
+% Trayectoria planificada, inicio, meta y robot en su posición inicial
+plot(pathXY(:,1), pathXY(:,2), 'b--', 'LineWidth', 1.0);
+plot(start_pos(1), start_pos(2), 'go', 'MarkerFaceColor', 'g', 'MarkerSize', 8);
+plot(goal_pos(1), goal_pos(2), 'rp', 'MarkerFaceColor', 'r', 'MarkerSize', 12);
+Robot_model(robotPos(1), robotPos(2), robotTheta);
 
 % Ajustar límites para buena visualización
 xlim([0, li]);
 ylim([0, li]);
 
-% Animación del movimiento de personas
-for t = 1:n_frames
+% Animación del movimiento de personas + navegación del robot.
+% La simulación termina cuando el robot llega a su destino.
+maxFrames = 5000;     % límite de seguridad por si el robot no alcanzara la meta
+replanInterval = 10;  % cuadros entre replanificaciones de la trayectoria
+t = 0;
+while true
+    t = t + 1;
+    if t > maxFrames
+        warning('Se alcanzó el límite de cuadros sin que el robot llegue a la meta.');
+        break;
+    end
+
     % Movimiento natural: mantener inercia y variar suavemente el rumbo
     vx = vx + noise_gain * randn(1, n);
     vy = vy + noise_gain * randn(1, n);
+
+    % Tirón suave hacia la posición inicial: evita que las personas se
+    % alejen mucho de donde empezaron, sin dejar de moverse (ley de Hooke:
+    % cuanto más lejos de "casa", más fuerte el jalón de regreso).
+    vx = vx - home_pull * (x - homeX);
+    vy = vy - home_pull * (y - homeY);
 
     speed = sqrt(vx.^2 + vy.^2);
     idxLow = speed < min_speed;
@@ -106,6 +151,10 @@ for t = 1:n_frames
         vx(idxHigh) = vx(idxHigh) .* scale;
         vy(idxHigh) = vy(idxHigh) .* scale;
     end
+
+    % Orientación de cada persona en este cuadro (se usa para orientar su
+    % cápsula corporal en la colisión, además de para dibujarla más abajo).
+    theta_deg = atan2d(vy, vx);
 
     x = x + vx;
     y = y + vy;
@@ -125,13 +174,20 @@ for t = 1:n_frames
     y(idx) = li - r_small;
     vy(idx) = -abs(vy(idx));
 
-    % Rebote entre personas (colisión elástica aproximada)
-    minDist = 2 * r_small;
+    % Rebote entre personas (colisión elástica aproximada), usando la
+    % cápsula real del cuerpo de cada una (misma forma y orientación que
+    % dibuja Individual_Human_Model) en vez de aproximarlas a un círculo.
+    minDist = 2 * cap_r;
     for i = 1:n-1
         for j = i+1:n
-            dx = x(j) - x(i);
-            dy = y(j) - y(i);
-            dist = hypot(dx, dy);
+            dirI = deg2rad(theta_deg(i)) + pi/2;
+            P1i = [x(i), y(i)] + core_half * [cos(dirI), sin(dirI)];
+            P2i = [x(i), y(i)] - core_half * [cos(dirI), sin(dirI)];
+            dirJ = deg2rad(theta_deg(j)) + pi/2;
+            P1j = [x(j), y(j)] + core_half * [cos(dirJ), sin(dirJ)];
+            P2j = [x(j), y(j)] - core_half * [cos(dirJ), sin(dirJ)];
+
+            [dist, cI, cJ] = SegSegDist2D(P1i, P2i, P1j, P2j);
             if dist < minDist
                 if dist < 1e-9
                     ang = 2*pi*rand;
@@ -139,8 +195,8 @@ for t = 1:n_frames
                     ny = sin(ang);
                     dist = 1e-9;
                 else
-                    nx = dx / dist;
-                    ny = dy / dist;
+                    nx = (cJ(1) - cI(1)) / dist;
+                    ny = (cJ(2) - cI(2)) / dist;
                 end
 
                 overlap = minDist - dist;
@@ -164,23 +220,14 @@ for t = 1:n_frames
     x = min(max(x, r_small), li - r_small);
     y = min(max(y, r_small), li - r_small);
 
+    % Redibujar la escena completa: siluetas individuales (con su gaussiana)
+    % y las gaussianas de grupo detectadas por distancia.
+    cla;
+    theta_deg = atan2d(vy, vx);
     for k = 1:n
-        xk = x(k);
-        yk = y(k);
-        bodyX = xk + [-bodyHalfWidth, bodyHalfWidth, bodyHalfWidth*0.70, -bodyHalfWidth*0.70];
-        bodyY = yk + [bodyBottom, bodyBottom, bodyTop, bodyTop];
-        headX = xk + headRadius*cos(theta);
-        headY = yk + 0.25 + headRadius*sin(theta);
-
-        set(hBody(k), 'XData', bodyX, 'YData', bodyY);
-        set(hHead(k), 'XData', headX, 'YData', headY);
+        Individual_Human_Model(x(k), y(k), theta_deg(k), 1);
     end
 
-    % Actualizar detector de grupos + gaussianas y curvas de nivel
-    if ~isempty(hContours)
-        delete(hContours(ishghandle(hContours)));
-    end
-    hContours = gobjects(0);
     MCo = Group_Detector_Distan(x, y);
     for i = 1:size(MCo, 1)
         row = MCo(i,:);
@@ -189,21 +236,109 @@ for t = 1:n_frames
         yin = vals(2:2:end);
         if numel(xin) >= 2
             [xrot, yrot, zrot] = Modelo(xin, yin, mo);
-            [~, h1] = contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0 0]);
-            %[~, h2] = contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0.5 0]);
-            hContours(end+1) = h1; %#ok<SAGROW>
-            %hContours(end+1) = h2; %#ok<SAGROW>
+            contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0 0]);
         end
     end
 
+    % Replanificar la trayectoria con las posiciones actuales de las
+    % personas (antes de mover al robot), para que su siguiente paso ya
+    % considere dónde están las zonas proxémicas EN ESTE cuadro.
+    if mod(t, replanInterval) == 0
+        newPath = PlanPath(x, y, theta_deg, MCo, mo, li, sigma_h, sigma_s, ...
+            umbral_individual, umbral_grupal, cellSize, robotPos, goal_pos);
+        if ~isempty(newPath) && size(newPath,1) >= 2
+            newPath(1,:) = robotPos; % evitar salto visual al encajar en la grilla
+            pathXY = newPath;
+            segLengths = hypot(diff(pathXY(:,1)), diff(pathXY(:,2)));
+            cumLen = [0; cumsum(segLengths)];
+            totalLen = cumLen(end);
+            traveled = 0;
+        end
+        % Si no se encontró camino (p.ej. el robot quedó rodeado
+        % momentáneamente), se conserva la trayectoria anterior.
+    end
+
+    % Avanzar el robot sobre la trayectoria ya actualizada, a la
+    % velocidad social definida, y dibujarlo en su nueva posición.
+    traveled = min(traveled + v_robot*dt_robot, totalLen);
+    idxSeg = find(cumLen <= traveled, 1, 'last');
+    idxSeg = min(idxSeg, size(pathXY,1)-1);
+    segStart = pathXY(idxSeg, :);
+    segEnd   = pathXY(idxSeg+1, :);
+    segFrac = (traveled - cumLen(idxSeg)) / max(segLengths(idxSeg), eps);
+    robotPos = segStart + segFrac * (segEnd - segStart);
+    robotTheta = atan2d(segEnd(2)-segStart(2), segEnd(1)-segStart(1));
+
+    % Trayectoria planificada, marcadores y robot
+    plot(pathXY(:,1), pathXY(:,2), 'b--', 'LineWidth', 1.0);
+    plot(start_pos(1), start_pos(2), 'go', 'MarkerFaceColor', 'g', 'MarkerSize', 8);
+    plot(goal_pos(1), goal_pos(2), 'rp', 'MarkerFaceColor', 'r', 'MarkerSize', 12);
+    Robot_model(robotPos(1), robotPos(2), robotTheta);
+
+    xlim([0, li]);
+    ylim([0, li]);
     drawnow limitrate;
+
+    % La simulación termina cuando el robot alcanza su destino
+    if hypot(robotPos(1)-goal_pos(1), robotPos(2)-goal_pos(2)) < goal_tol
+        break;
+    end
 end
 
+disp('Robot llegó a su destino. Simulación finalizada.');
 hold off;
 
-% [xrot, yrot, zrot] = Paco_Model(xin, yin);
+function pathXY = PlanPath(x, y, theta_deg, MCo, mo, li, sigma_h, sigma_s, ...
+    umbral_individual, umbral_grupal, cellSize, startPos, goalPos)
+%PLANPATH Construye la grilla de ocupación a partir de las zonas
+%   proxémicas (individuales y grupales) vigentes y planifica con A* una
+%   trayectoria de startPos a goalPos. Devuelve [] si no hay camino.
 
-%contour(xrot, yrot, zrot, [0.96, 0.96], 'LineColor', [1 0 0]);
-%hold on;
-%contour(xrot, yrot, zrot, [0.9, 0.9], 'LineColor', [1 0.5 0]);
-%hold on;
+    gxv = 0:cellSize:li;
+    gyv = 0:cellSize:li;
+    [GX, GY] = meshgrid(gxv, gyv);
+    occ = false(size(GX));
+
+    n = numel(x);
+    for k = 1:n
+        phi = deg2rad(theta_deg(k));
+        dxq = GX - x(k);
+        dyq = GY - y(k);
+        dxl =  dxq*cos(phi) + dyq*sin(phi);
+        dyl = -dxq*sin(phi) + dyq*cos(phi);
+        g = exp(-(dxl.^2/(2*sigma_s^2) + dyl.^2/(2*sigma_h^2)));
+        occ = occ | (g > umbral_individual);
+    end
+
+    for i = 1:size(MCo,1)
+        row = MCo(i,:);
+        vals = row(~isnan(row));
+        xin = vals(1:2:end);
+        yin = vals(2:2:end);
+        if numel(xin) >= 2
+            [xg, yg, zg] = Modelo(xin, yin, mo);
+            zq = griddata(xg(:), yg(:), zg(:), GX, GY); %#ok<GRIDD>
+            zq(isnan(zq)) = 0;
+            occ = occ | (zq > umbral_grupal);
+        end
+    end
+
+    [~, startCol] = min(abs(gxv - startPos(1)));
+    [~, startRow] = min(abs(gyv - startPos(2)));
+    [~, goalCol]  = min(abs(gxv - goalPos(1)));
+    [~, goalRow]  = min(abs(gyv - goalPos(2)));
+
+    % Liberar las celdas de inicio y meta: el margen de seguridad no debe
+    % impedir que el robot parta desde donde está o llegue a su destino.
+    occ(startRow, startCol) = false;
+    occ(goalRow, goalCol) = false;
+
+    pathRC = AStar_Grid(occ, [startRow, startCol], [goalRow, goalCol]);
+    if isempty(pathRC)
+        pathXY = [];
+        return;
+    end
+    pathXY = [gxv(pathRC(:,2))', gyv(pathRC(:,1))'];
+    pathXY = SimplifyPath(pathXY, GX, GY, occ);
+    pathXY = SmoothPathCorners(pathXY, GX, GY, occ, 0.3, 8); % redondear esquinas
+end
