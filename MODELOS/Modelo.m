@@ -30,6 +30,8 @@ function [xrot, yrot, zrot, h] = Modelo(x, y, theta, m, op)
             [xrot, yrot, zrot, h] = Aracelly_model_theta(x, y, theta, op);
         case 5
             [xrot, yrot, zrot, h] = De_Sousa_Model_paper(x, y, theta, op);
+        case 6
+            [xrot, yrot, zrot, h] = Paco_Model_paper(x, y, theta, op);
         otherwise
             error('Modelo no válido. Use 1 (Paco_Model), 2 (De_Sousa_Model), 3 (Individual_Group_Model) o 4 (Aracelly_model).');
     end

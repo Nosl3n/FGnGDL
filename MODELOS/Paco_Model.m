@@ -51,11 +51,14 @@ function [xrot, yrot, zrot, h] = Paco_Model(x, y, theta, op)
     xcm = (max(x) + min(x)) / 2;
     ycm = (max(y) + min(y)) / 2;
 
+    %xcm = mean(x);
+    %ycm = mean(y);
+
     % Ordenar puntos alrededor del centro
     [x_ord, y_ord] = ordenar_puntos(xcm, ycm, x, y);
 
     % Determinar orientación del grupo
-    ang_vec = orientacion_vec(x_ord, y_ord, xcm, ycm, 0);
+    ang_vec = orientacion_vec(x_ord, y_ord, xcm, ycm, 1);
 
     % Filtrar personas muy cercanas entre sí
     for i = 1:length(x)
