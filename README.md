@@ -147,3 +147,30 @@ y = [1, -1, 0, 1];
 theta = [200, 45, 30, 15]; % grados
 run('modelo_humano.m');
 ```
+
+---
+
+Fecha: 2026-09-01
+
+### 1) `MODELOS/Individual_Group_Model.m`
+- Nuevo parámetro de entrada `op`:
+  - `op == 1` -> `h` se calcula **analíticamente**, evaluando la suma de gaussianas del modelo en `(xh, yh)` (antes se obtenía por interpolación de la malla con `interp2`, lo que introducía error dependiente de la resolución de la malla).
+  - `op ~= 1` -> `h` usa un valor fijo por defecto (`h_default = 0.85`), obtenido empíricamente como el nivel que en promedio incluye la zona proxémica íntima del grupo.
+- `(xh, yh)` es el punto ubicado al borde de la zona proxémica íntima de Hall de la persona **más alejada** del centro geométrico del grupo, proyectado hacia afuera (`Dh = R_HB + D_iz`).
+- Los parámetros del modelo (`lado`, `paso`, `sigma`, `R_HB`, `D_iz`, `Dh`, `h_default`) se agruparon y documentaron en un bloque único al inicio de la función.
+- Se documentó que el "centro del grupo" (`xcm`, `ycm`) es el centro del bounding box (no el centroide/promedio), y por qué se prefiere así.
+- Se documentó que el punto anterior (elegir a la persona más alejada vía `max`) es una decisión discreta: puede cambiar de golpe entre cuadros si dos personas quedan casi empatadas en distancia al centro, o si cambia la pertenencia a un grupo.
+
+### 2) `MODELOS/Aracelly_model_theta.m`, `MODELOS/De_Sousa_Model.m`, `MODELOS/Paco_Model.m`
+- Se añadió el mismo mecanismo de `op` para obtener `h` que en `Individual_Group_Model.m`, adaptado a la fórmula de densidad propia de cada modelo:
+  - `Aracelly_model_theta`: gaussiana asimétrica orientada por persona (`k1,k2,k3`).
+  - `De_Sousa_Model`: gaussiana asimétrica por sectores frontal/trasero/izquierda/derecha (`Assimetric_Gaussian.m`).
+  - `Paco_Model`: gaussiana con varianzas variables por ángulo, evaluada deshaciendo la rotación que aplica `rotar_gaussiana.m` para ubicar `(xh,yh)` en el marco correcto.
+- Los tres modelos ahora aceptan `theta` (orientación por persona, en grados) en su firma para tener la misma firma que `Modelo.m` espera; hoy solo `Aracelly_model_theta` la usa para el cálculo de densidad, las otras dos la reciben pero no la usan todavía.
+- Valor por defecto de `h` (cuando `op ~= 1`) unificado a `0.85` en los cuatro modelos (antes `Paco_Model` y `De_Sousa_Model` usaban `0.5` fijo).
+- En `Paco_Model.m` se corrigió una colisión de nombres: la variable interna que calculaba el ángulo de cada punto de la malla se llamaba `theta`, igual que el nuevo parámetro de orientación de personas; se renombró a `angGrid` para evitar confusión.
+
+### 3) `Experimento_01.m`
+- Las llamadas a `Modelo(...)` ahora pasan también `theta` (la orientación actual de cada persona), además de `mo` y `op`.
+- Nueva función local `ExtractGroupTheta`: recupera el `theta` de cada persona de un grupo detectado por `Group_Detector_Distan`, emparejando sus coordenadas `(xin,yin)` con los vectores originales `x, y, theta_deg`.
+- Suavizado exponencial de `h` entre cuadros de la animación (`hSmooth`, `alphaH = 0.2`), indexado por posición del grupo, para atenuar los saltos bruscos del contorno grupal que se documentaron en `Individual_Group_Model.m` (cambio de la persona "más alejada", o alguien entra/sale de un grupo).

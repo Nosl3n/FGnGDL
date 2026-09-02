@@ -10,7 +10,7 @@ radius = 0.5;  % radio de cada esfera
 
 %Modelo
 
-mo = 1; % Modelo a usar: 1-Paco_Model, 2-De_Sousa_Model, 3-Individual_Group_Model, 4-Aracelly_model
+mo = 4; % Modelo a usar: 1-Paco_Model, 2-De_Sousa_Model, 3-Individual_Group_Model, 4-Aracelly_model
 
 % Generar datos inic.
 n = randi([2, limvec]);
@@ -21,6 +21,12 @@ y = radius + (li - 2*radius) * rand(1, n);
 vmax0 = 0.3;
 vx = vmax0*(2*rand(1,n)-1);
 vy = vmax0*(2*rand(1,n)-1);
+
+% Orientación inicial de cada persona. Algunas funciones del modelo esperan
+% un vector theta en grados; aquí se usa un valor neutro para mantener la
+% compatibilidad con la API actual y evitar que el script falle cuando las
+% funciones del modelo han cambiado de firma.
+theta = zeros(1,n);
 
 % Gráficos: figura única en 3D
 figure('Color','w');
@@ -52,7 +58,7 @@ end
 hSurfObjs = gobjects(0);
 
 % Primer cálculo de la sección gaussiana
-[x_sec, y_sec, z_sec] = Modelo(x, y, mo);
+[x_sec, y_sec, z_sec] = getModelSection(x, y, theta, mo, 1);
 
 % Preparar y dibujar la superficie inicial
 [Xg, Yg, Zg] = prepareGrid(x_sec, y_sec, z_sec);
@@ -166,7 +172,7 @@ for step = 1:nSteps
     end
 
     % recalcular sección y actualizar la superficie gaussiana
-    [x_sec, y_sec, z_sec] = Modelo(x, y, mo);
+    [x_sec, y_sec, z_sec] = getModelSection(x, y, theta, mo, 1);
 
     [Xg, Yg, Zg] = prepareGrid(x_sec, y_sec, z_sec);
     % borrar superficie anterior (el tamaño de malla cambia cada cuadro)
@@ -203,4 +209,19 @@ function [Xg,Yg,Zg] = prepareGrid(xp,yp,zp)
     [Xg, Yg] = meshgrid(linspace(xmin, xmax, nx), linspace(ymin, ymax, ny));
     % interpolar (natural es buena opción)
     Zg = griddata(xp, yp, zp, Xg, Yg, 'natural');
+end
+
+function [xSec, ySec, zSec] = getModelSection(x, y, theta, modelId, op)
+    switch modelId
+        case 1
+            [xSec, ySec, zSec, ~] = Paco_Model(x, y, op);
+        case 2
+            [xSec, ySec, zSec, ~] = De_Sousa_Model(x, y);
+        case 3
+            [xSec, ySec, zSec, ~] = Individual_Group_Model(x, y, theta, op);
+        case 4
+            [xSec, ySec, zSec, ~] = Aracelly_model_theta(x, y, theta, op);
+        otherwise
+            error('Modelo no válido. Usa 1, 2, 3 o 4.');
+    end
 end

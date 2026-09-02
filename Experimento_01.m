@@ -1,20 +1,36 @@
 raizProyecto = fileparts(mfilename('fullpath'));
 addpath(fullfile(raizProyecto,'FUNCTIONS'));
 addpath(fullfile(raizProyecto,'MODELOS'));
-% SE PRUEVA CADA MODELO POR SEPARADO
-% Defina las coordenadas como vectores fila o columna:
-x = [2.5, 4, 3.5, 8, 8, 7, 7];  % <-- editar
-y = [3, 2.5, 3, 6, 7, 5, 6]; % <-- editar
-n= length(x);
+% ================= PARÁMETROS EDITABLES DEL EXPERIMENTO =================
+% Posición inicial de cada persona (m). Cada elemento representa una persona.
+x = [2.5, 4, 3.5, 8, 8, 7, 8];  % <-- editar
+y = [3, 2.5, 3, 6, 7, 5, 6];   % <-- editar
+theta_ini = [30, 25, 45, 90, 150, 180, 200]; % orientación inicial (grados) <-- editar
+speed_ini = [0.03, 0.03, 0.03, 0.03, 0.03, 0.03, 0.03]; % velocidad inicial (m/cuadro) <-- editar
+
+li = 10;          % tamaño del área de movimiento: [0, li] m en X e Y
+r_small = 0.5;    % radio físico de cada persona (m); el centro queda en [r_small, li-r_small]
+min_speed = 0.01; % velocidad mínima permitida (m/cuadro)
+max_speed = 0.05; % velocidad máxima permitida (m/cuadro)
+home_pull = 0.02; % aceleración de retorno: a = -home_pull*(posicion - posicion_inicial)
+                  % unidades: m/cuadro^2; 0 desactiva el retorno a la posición inicial
+mo = 1;           % modelo grupal: 1-Paco, 2-De_Sousa, 3-Individual_Group
+op = 0;           % Optimizacion del "h" op = 1, activado; op = 0, desactivado
+graf = 1;         % 0: ocultar/excluir zonas individuales; 1: dibujar/incluir zonas individuales
+% Aceptar vectores fila o columna y trabajar internamente con vectores fila.
+x = x(:).';
+y = y(:).';
+theta_ini = theta_ini(:).';
+speed_ini = speed_ini(:).';
+n = numel(x);
+if numel(y) ~= n || numel(theta_ini) ~= n || numel(speed_ini) ~= n
+    error('x, y, theta_ini y speed_ini deben tener la misma cantidad de elementos.');
+end
+if any(speed_ini < min_speed) || any(speed_ini > max_speed)
+    error('Cada valor de speed_ini debe estar entre min_speed y max_speed.');
+end
 homeX = x;  % posición de referencia de cada persona: no cambia durante la
 homeY = y;  % simulación; cada persona ronda alrededor de su propio "homeX,homeY"
-%..................................................................
-li = 10;        % límites [0 li]
-limvec = 20;   % máximo número de personas
-mo = 3;         % 1-Paco_Model, 2-De_Sousa_Model, 3-Individual_Group_Model
-
-%.................................................................
-r_small = 0.5;             % radio de cada punto (m)
 
 MCo = Group_Detector_Distan(x, y); %detector de grupos por distancia
 disp(MCo);
@@ -26,14 +42,6 @@ figure; hold on; axis equal; grid on;
 xlabel('X (m)'); ylabel('Y (m)');
 title('Generacion de zonas proxemicas cuando las personas estan en movimiento');
 
-% Parámetros de movimiento (personas)
-n_frames = 300;   % cantidad de cuadros de animación
-min_speed = 0.01; % velocidad mínima (m/cuadro)
-max_speed = 0.05; % velocidad máxima (m/cuadro)
-noise_gain = 0.005; % variación suave de dirección/velocidad (m/cuadro)
-home_pull = 0.02; % intensidad del tirón hacia la posición inicial (por
-                   % metro de distancia); más alto = ronda más apretado
-
 % Geometría de la "columna" del cuerpo para la colisión entre personas:
 % deben coincidir con los parámetros de la cápsula usada en
 % Individual_Human_Model.m (L_BB, rect_width) para que el rebote entre
@@ -43,19 +51,32 @@ rect_width = 0.12;
 cap_r = rect_width / 2;        % radio de los extremos semicirculares
 core_half = L_BB/2 - cap_r;    % mitad de la columna recta de la cápsula
 
-% Estado dinámico inicial: velocidades con dirección aleatoria
-ang0 = 2*pi*rand(1, n);
-spd0 = min_speed + (max_speed - min_speed) * rand(1, n);
+% Estado dinámico inicial completamente definido por el usuario.
+% theta_ini está expresado en grados: 0° apunta a +X y 90° a +Y.
+ang0 = deg2rad(theta_ini);
+spd0 = speed_ini;
 vx = spd0 .* cos(ang0);
 vy = spd0 .* sin(ang0);
 
 % Dibujar cada persona (silueta + gaussiana individual) con Individual_Human_Model.
 % La orientación de cada persona se toma de la dirección de su velocidad inicial.
 % r_small sigue representando el espacio físico usado en las colisiones.
-theta_deg = atan2d(vy, vx);
+theta_deg = theta_ini;
 for k = 1:n
-    Individual_Human_Model(x(k), y(k), theta_deg(k), 1);
+    Individual_Human_Model(x(k), y(k), theta_deg(k), graf);
 end
+
+% Suavizado exponencial de "h" entre cuadros: (xh,yh) depende de un
+% argmax discreto (la persona más alejada del centro del grupo, ver
+% Individual_Group_Model.m) y de la pertenencia a grupos (umbral duro en
+% Group_Detector_Distan), así que h puede saltar bruscamente cuando el
+% "más alejado" cambia de persona o alguien entra/sale del grupo. Se
+% filtra con una media móvil exponencial por grupo (hSmooth indexado por
+% posición del grupo en MCo):
+%   hSmooth(t) = alphaH*h(t) + (1-alphaH)*hSmooth(t-1)
+% alphaH pequeño = más suave pero con más retraso; alphaH=1 = sin suavizado.
+alphaH = 0.2;
+hSmooth = [];
 
 % grafica gaussianas de grupo
 for i=1:size(MCo,1)
@@ -64,8 +85,10 @@ for i=1:size(MCo,1)
     xin = vals(1:2:end);       % x = posiciones 1,3,5,...
     yin = vals(2:2:end);       % y = posiciones 2,4,6,...
 
-    [xrot, yrot, zrot] = Modelo(xin, yin, mo);
-    contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0 0]); %55
+    thetaIn = ExtractGroupTheta(x, y, theta_deg, xin, yin);
+    [xrot, yrot, zrot, hrot] = Modelo(xin, yin, thetaIn, mo, op);
+    hSmooth(i) = hrot; % primer cuadro: sin historial previo
+    contour(xrot, yrot, zrot, [hSmooth(i), hSmooth(i)], 'LineColor', [1 0 0]); %55
 end
 
 %% ----------------------- ROBOT: PLANIFICACIÓN DE TRAYECTORIA CON A*
@@ -85,7 +108,7 @@ umbral_grupal     = 0.4;  % mismo nivel que dibuja el contorno rojo de grupo
 cellSize = 0.25;          % resolución de la grilla de A* (m)
 
 pathXY = PlanPath(x, y, theta_deg, MCo, mo, li, sigma_h, sigma_s, ...
-    umbral_individual, umbral_grupal, cellSize, start_pos, goal_pos);
+    umbral_individual, umbral_grupal, cellSize, start_pos, goal_pos, graf == 1, op);
 if isempty(pathXY)
     error('A* no encontró una trayectoria libre de zonas proxémicas.');
 end
@@ -128,13 +151,8 @@ while true
         break;
     end
 
-    % Movimiento natural: mantener inercia y variar suavemente el rumbo
-    vx = vx + noise_gain * randn(1, n);
-    vy = vy + noise_gain * randn(1, n);
-
-    % Tirón suave hacia la posición inicial: evita que las personas se
-    % alejen mucho de donde empezaron, sin dejar de moverse (ley de Hooke:
-    % cuanto más lejos de "casa", más fuerte el jalón de regreso).
+    % Movimiento determinista: la única aceleración es el retorno suave a
+    % la posición inicial (ley de Hooke). No se aplica ruido aleatorio.
     vx = vx - home_pull * (x - homeX);
     vy = vy - home_pull * (y - homeY);
 
@@ -190,7 +208,9 @@ while true
             [dist, cI, cJ] = SegSegDist2D(P1i, P2i, P1j, P2j);
             if dist < minDist
                 if dist < 1e-9
-                    ang = 2*pi*rand;
+                    % Normal fija para el caso degenerado: depende solo de
+                    % los índices de las personas, por lo que es reproducible.
+                    ang = deg2rad(mod(137*i + 53*j, 360));
                     nx = cos(ang);
                     ny = sin(ang);
                     dist = 1e-9;
@@ -225,7 +245,7 @@ while true
     cla;
     theta_deg = atan2d(vy, vx);
     for k = 1:n
-        Individual_Human_Model(x(k), y(k), theta_deg(k), 1);
+        Individual_Human_Model(x(k), y(k), theta_deg(k), graf);
     end
 
     MCo = Group_Detector_Distan(x, y);
@@ -235,17 +255,24 @@ while true
         xin = vals(1:2:end);
         yin = vals(2:2:end);
         if numel(xin) >= 2
-            [xrot, yrot, zrot] = Modelo(xin, yin, mo);
-            contour(xrot, yrot, zrot, [0.4, 0.4], 'LineColor', [1 0 0]);
+            thetaIn = ExtractGroupTheta(x, y, theta_deg, xin, yin);
+            [xrot, yrot, zrot, hrot] = Modelo(xin, yin, thetaIn, mo, op);
+            if i > numel(hSmooth)
+                hSmooth(i) = hrot; % grupo nuevo: sin historial, se toma el valor actual
+            else
+                hSmooth(i) = alphaH*hrot + (1-alphaH)*hSmooth(i);
+            end
+            contour(xrot, yrot, zrot, [hSmooth(i), hSmooth(i)], 'LineColor', [1 0 0]);
         end
     end
+    hSmooth = hSmooth(1:size(MCo, 1)); % descartar historial de grupos que ya no existen
 
     % Replanificar la trayectoria con las posiciones actuales de las
     % personas (antes de mover al robot), para que su siguiente paso ya
     % considere dónde están las zonas proxémicas EN ESTE cuadro.
     if mod(t, replanInterval) == 0
         newPath = PlanPath(x, y, theta_deg, MCo, mo, li, sigma_h, sigma_s, ...
-            umbral_individual, umbral_grupal, cellSize, robotPos, goal_pos);
+            umbral_individual, umbral_grupal, cellSize, robotPos, goal_pos, graf == 1, op);
         if ~isempty(newPath) && size(newPath,1) >= 2
             newPath(1,:) = robotPos; % evitar salto visual al encajar en la grilla
             pathXY = newPath;
@@ -289,9 +316,9 @@ disp('Robot llegó a su destino. Simulación finalizada.');
 hold off;
 
 function pathXY = PlanPath(x, y, theta_deg, MCo, mo, li, sigma_h, sigma_s, ...
-    umbral_individual, umbral_grupal, cellSize, startPos, goalPos)
+    umbral_individual, umbral_grupal, cellSize, startPos, goalPos, usarZonasIndividuales, op)
 %PLANPATH Construye la grilla de ocupación a partir de las zonas
-%   proxémicas (individuales y grupales) vigentes y planifica con A* una
+%   proxémicas vigentes y planifica con A* una
 %   trayectoria de startPos a goalPos. Devuelve [] si no hay camino.
 
     gxv = 0:cellSize:li;
@@ -299,15 +326,17 @@ function pathXY = PlanPath(x, y, theta_deg, MCo, mo, li, sigma_h, sigma_s, ...
     [GX, GY] = meshgrid(gxv, gyv);
     occ = false(size(GX));
 
-    n = numel(x);
-    for k = 1:n
-        phi = deg2rad(theta_deg(k));
-        dxq = GX - x(k);
-        dyq = GY - y(k);
-        dxl =  dxq*cos(phi) + dyq*sin(phi);
-        dyl = -dxq*sin(phi) + dyq*cos(phi);
-        g = exp(-(dxl.^2/(2*sigma_s^2) + dyl.^2/(2*sigma_h^2)));
-        occ = occ | (g > umbral_individual);
+    if usarZonasIndividuales
+        n = numel(x);
+        for k = 1:n
+            phi = deg2rad(theta_deg(k));
+            dxq = GX - x(k);
+            dyq = GY - y(k);
+            dxl =  dxq*cos(phi) + dyq*sin(phi);
+            dyl = -dxq*sin(phi) + dyq*cos(phi);
+            g = exp(-(dxl.^2/(2*sigma_s^2) + dyl.^2/(2*sigma_h^2)));
+            occ = occ | (g > umbral_individual);
+        end
     end
 
     for i = 1:size(MCo,1)
@@ -316,7 +345,8 @@ function pathXY = PlanPath(x, y, theta_deg, MCo, mo, li, sigma_h, sigma_s, ...
         xin = vals(1:2:end);
         yin = vals(2:2:end);
         if numel(xin) >= 2
-            [xg, yg, zg] = Modelo(xin, yin, mo);
+            thetaIn = ExtractGroupTheta(x, y, theta_deg, xin, yin);
+            [xg, yg, zg] = Modelo(xin, yin, thetaIn, mo, op);
             zq = griddata(xg(:), yg(:), zg(:), GX, GY); %#ok<GRIDD>
             zq(isnan(zq)) = 0;
             occ = occ | (zq > umbral_grupal);
@@ -341,4 +371,17 @@ function pathXY = PlanPath(x, y, theta_deg, MCo, mo, li, sigma_h, sigma_s, ...
     pathXY = [gxv(pathRC(:,2))', gyv(pathRC(:,1))'];
     pathXY = SimplifyPath(pathXY, GX, GY, occ);
     pathXY = SmoothPathCorners(pathXY, GX, GY, occ, 0.3, 8); % redondear esquinas
+end
+
+function thetaIn = ExtractGroupTheta(xAll, yAll, thetaAll, xIn, yIn)
+%EXTRACTGROUPTHETA Recupera el theta (orientación) de cada persona de un
+%   grupo, emparejando sus coordenadas (xIn,yIn) -obtenidas de
+%   Group_Detector_Distan/MCo- con los vectores originales de todas las
+%   personas (xAll,yAll,thetaAll). La igualdad exacta es segura aquí
+%   porque MCo solo reordena x,y (sin ninguna operación aritmética).
+    thetaIn = zeros(size(xIn));
+    for k = 1:numel(xIn)
+        idx = find(xAll == xIn(k) & yAll == yIn(k), 1);
+        thetaIn(k) = thetaAll(idx);
+    end
 end

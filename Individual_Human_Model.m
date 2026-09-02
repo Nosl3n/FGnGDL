@@ -7,7 +7,8 @@ function [xrot, yrot, zrot] = Individual_Human_Model(x, y, theta, activar)
 %       activar - 1 para dibujar la silueta y la gaussiana, 0 para no
 %                 graficar la gaussiana (opcional, por defecto 1)
 %   Salidas:
-%       xrot, yrot, zrot - malla y densidad gaussiana orientada según theta
+%       xrot, yrot, zrot - malla y densidad gaussiana orientada según theta;
+%                         vacías si activar == 0
 %   Efecto secundario: si activar == 1, dibuja sobre los ejes actuales la
 %   silueta de la persona (cuerpo, cabeza y flecha de orientación) junto
 %   con el contorno de su gaussiana proxémica.
@@ -23,20 +24,27 @@ function [xrot, yrot, zrot] = Individual_Human_Model(x, y, theta, activar)
     end
 
     %% ----------------------- MODELO GAUSSIANO
-    % Varianzas proxémicas típicas (Vega et al., 2017)
-    sigma_h = 0.9;   % frontal
-    sigma_s = 0.6;   % lateral
+    % Con activar == 0 no se calcula ni se devuelve la zona proxémica.
+    if activar == 0
+        xrot = [];
+        yrot = [];
+        zrot = [];
+    else
+        % Varianzas proxémicas típicas (Vega et al., 2017)
+        sigma_h = 0.9;   % frontal
+        sigma_s = 0.6;   % lateral
 
-    % Malla de evaluación
-    lado = 5;
-    paso = 0.1;
-    [xx, yy] = meshgrid(x-lado:paso:x+lado, y-lado:paso:y+lado);
+        % Malla de evaluación
+        lado = 5;
+        paso = 0.1;
+        [xx, yy] = meshgrid(x-lado:paso:x+lado, y-lado:paso:y+lado);
 
-    % Densidad gaussiana base (orientación 0) rotada según theta (grados)
-    dx = xx - x;
-    dy = yy - y;
-    zz = exp(-(dx.^2 ./ (2*sigma_s^2) + dy.^2 ./ (2*sigma_h^2)));
-    [xrot, yrot, zrot] = rotar_gaussiana(xx, yy, zz, -theta, x, y);
+        % Densidad gaussiana base (orientación 0) rotada según theta (grados)
+        dx = xx - x;
+        dy = yy - y;
+        zz = exp(-(dx.^2 ./ (2*sigma_s^2) + dy.^2 ./ (2*sigma_h^2)));
+        [xrot, yrot, zrot] = rotar_gaussiana(xx, yy, zz, -theta, x, y);
+    end
 
     %% ----------------------- SILUETA DE LA PERSONA
     % Parámetros visuales de la silueta

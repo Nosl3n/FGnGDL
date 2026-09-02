@@ -1,4 +1,4 @@
-function [xrot, yrot, zrot] = Aracelly_model(x, y)
+function [xrot, yrot, zrot,h] = Aracelly_model(x, y)
 %ARACELLY_MODEL Densidad grupal como mezcla de gaussianas asimétricas.
 %   Implementa el modelo de Vega et al. (2017): cada persona se representa
 %   con una gaussiana 2D orientada (varianza frontal sigma_h, lateral
@@ -16,11 +16,12 @@ function [xrot, yrot, zrot] = Aracelly_model(x, y)
 
     x = x(:).';
     y = y(:).';
-
+    h = 0.5;
     if isempty(x)
         xrot = [];
         yrot = [];
         zrot = [];
+        
         return;
     end
 
