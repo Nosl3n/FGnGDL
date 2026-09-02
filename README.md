@@ -174,3 +174,32 @@ Fecha: 2026-09-01
 - Las llamadas a `Modelo(...)` ahora pasan también `theta` (la orientación actual de cada persona), además de `mo` y `op`.
 - Nueva función local `ExtractGroupTheta`: recupera el `theta` de cada persona de un grupo detectado por `Group_Detector_Distan`, emparejando sus coordenadas `(xin,yin)` con los vectores originales `x, y, theta_deg`.
 - Suavizado exponencial de `h` entre cuadros de la animación (`hSmooth`, `alphaH = 0.2`), indexado por posición del grupo, para atenuar los saltos bruscos del contorno grupal que se documentaron en `Individual_Group_Model.m` (cambio de la persona "más alejada", o alguien entra/sale de un grupo).
+
+---
+
+Fecha: 2026-09-02
+
+### 1) `MODELOS/Paco_Model_paper.m` — corrección de `Delta_gamma`
+- Se detectó que `Delta_gamma` (incremento angular de discretización, Sección 4.1.2 del paper) estaba **desconectado** del resto del código: solo incrementaba la variable `cont`, mientras que el bucle principal (`for i = 1:360`), el tamaño de los arreglos (`sigma_xj`, `sigma_yj`, dimensionados en `zeros(1,360)`) y la asignación de sección a cada punto de la malla (`idx_gk`) estaban fijos a `360`, sin depender de `Delta_gamma`. Cambiar `Delta_gamma` a cualquier valor distinto de `1` producía interpolaciones inconsistentes (secciones desincronizadas entre el ángulo real y el índice del bucle).
+- Corrección: se agregó `n_secciones = 360 / Delta_gamma` (con validación `mod(360, Delta_gamma) == 0`), y se reemplazó todo uso del literal `360` relacionado con el número de secciones por `n_secciones`. El bucle principal ahora separa el índice de arreglo (`i`) del ángulo real que representa (`angulo_actual = i * Delta_gamma`), y `idx_gk`/`idx_h` mapean el ángulo continuo a sección con `ceil(alpha / Delta_gamma)` en vez de `round(alpha)`.
+- Con `Delta_gamma = 1` el comportamiento es idéntico al original (regresión verificada).
+
+### 2) Hallazgo (sin corregir): `Z_corte` no filtra nada dentro de la función
+- Tanto `Paco_Model_paper.m` como el `Paco_Model.m` original documentan en su encabezado que la función "devuelve solo los puntos cuya altura `Zg` es >= `h`" (filtro por `Z_corte`, Sección 4.4.1/Etapa 6 del paper). En la práctica, ninguna de las dos implementa ese filtrado: `rotar_gaussiana` devuelve siempre la malla completa sin recortar, y `h` solo se retorna como valor extra. Todos los llamadores existentes (`Experimento_01.m`, `dinamic_example*.m`, `static_example*.m`, `modelo_humano.m`) usan `h` únicamente como nivel para `contour(...)`, nunca para descartar puntos.
+- No se modificó nada al respecto (queda documentado como comportamiento conocido, no como bug a resolver en esta sesión).
+
+### 3) `MODELOS/Paco_Model_Paper_HO.m` — "h optimizado por sección"
+- Nueva variante de `Paco_Model_paper.m` que reemplaza el corte plano (un único `Z_corte`/`h` paralelo al plano XY) por un **corte por sección angular**: cada una de las `n_secciones` tiene su propio umbral, calculado evaluando la gaussiana de esa misma sección (`sigma_xj(j)`, `sigma_yj(j)`) en el punto ubicado al borde de su propia zona íntima de Hall (radio `d_interpolado(j) + Dh`, proyectado hacia afuera en la dirección angular de la sección). Generaliza a todas las secciones el mismo principio que `Paco_Model_paper.m` aplicaba solo a la persona más expuesta del grupo.
+- `d_interpolado(j)` se obtiene de `sigma_xj(j) - sigma_min` (no requiere interpolar `d_i` por separado, ya que `sigma_xj` es la interpolación lineal de `sigma_Mx = d_i + sigma_min`).
+- Firma con una salida adicional: `[xrot, yrot, zrot, h, Dcorte] = Paco_Model_Paper_HO(x, y, theta_xy, op)`.
+  - `op == 1` -> `h` es un **vector** `1 x n_secciones` (superficie de corte con forma).
+  - `op ~= 1` -> `h` es el escalar fijo de siempre (`Z_corte_default`, plano paralelo a XY).
+  - `Dcorte = Zg - h_por_sección`: su curva de nivel `0` (`contour(xrot, yrot, Dcorte, [0, 0])`) traza el borde de corte —plano o con forma según `op`— con el mismo costo computacional que un `contour` de nivel fijo, sin necesidad de dibujar la nube de puntos filtrados (más cara de renderizar que una curva).
+- Verificado con MATLAB en modo headless: `op=0` da `h` escalar (p. ej. `0.5`); `op=1` da un vector de 720 valores (con `Delta_gamma = 0.5`) con variación real entre secciones (no degenerado a un solo valor).
+
+### 4) `prueba.m` (nuevo, en la raíz del proyecto)
+- Script de demostración, con el mismo esqueleto dinámico que `Experimento_01.m` (personas moviéndose con retorno suave a su posición inicial, rebote contra los límites y entre personas usando la cápsula corporal, siluetas dibujadas con `Individual_Human_Model`), pero recortado de la planificación A*/robot (no aporta a la comparación) y adaptado para llamar únicamente a `Paco_Model_Paper_HO.m`.
+- Por cada grupo y cuadro, llama dos veces a `Paco_Model_Paper_HO` (mismas posiciones, distinto `op`) y superpone ambos contornos para que la diferencia sea directamente visible:
+  - `op = 0` → corte constante, en azul.
+  - `op = 1` → corte optimizado por sección, en rojo.
+- Verificado ejecutándolo de punta a punta en MATLAB (modo headless, `-batch`) sin errores.

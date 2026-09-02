@@ -1,11 +1,17 @@
-function [xrot, yrot, zrot, h] = Paco_Model_paper(x, y, theta_xy, op)
-    % Paco_Model_paper: implementación del "Modelo Gaussiano Sectional
-    % Angular con Parametrización Adaptable" (ver papers/
-    % Modelo_Gaussiano_Sectional_Angular.md). Genera una única gaussiana
-    % 2D cuya varianza varía por sección angular (no es una elipse fija),
-    % y devuelve solo los puntos cuya altura Zg es >= h (filtro por
-    % Z_corte). Los puntos por debajo del umbral se eliminan. No se
-    % grafica nada.
+function [xrot, yrot, zrot, h, Dcorte] = Paco_Model_Paper_HO(x, y, theta_xy, op)
+    % Paco_Model_Paper_HO: variante de Paco_Model_paper con "h
+    % optimizado por sección" (ver papers/
+    % Modelo_Gaussiano_Sectional_Angular.md). Genera la misma gaussiana
+    % 2D seccional (Ec. 1), pero en vez de un único Z_corte plano
+    % (op ~= 1) o un único punto dinámico (versión original de op == 1),
+    % calcula un umbral h distinto POR SECCIÓN angular: una superficie de
+    % corte con forma (no un plano paralelo a XY), que sigue la anchura
+    % real (sigma_xj/sigma_yj) de cada sección. No se grafica nada; los
+    % puntos no se filtran dentro de la función (igual que
+    % Paco_Model_paper.m), pero se devuelve "Dcorte" = Zg - h_por_sección
+    % ya lista para trazar el borde de corte con contour(...,[0,0]),
+    % conservando el mismo costo de cómputo que un contour de nivel fijo
+    % (ver discusión de costo contour vs. dibujar la nube de puntos).
     %
     % Correspondencia de nombres con el paper (mismo símbolo, distinto
     % nombre de variable MATLAB porque el código se escribió antes que la
@@ -24,20 +30,28 @@ function [xrot, yrot, zrot, h] = Paco_Model_paper(x, y, theta_xy, op)
     %   beta_min, beta_max <-> beta_min, beta_max   (umbrales de fusión/inserción, Sección 4.2)
     %   Z_corte_default    <-> Z_corte              (umbral de corte, Sección 4.4.1)
     %
-    %   op controla cómo se obtiene "h" (== Z_corte, nivel de contorno de
-    %   la zona grupal):
-    %     op == 1  -> h se calcula analíticamente evaluando la gaussiana
-    %                 de este modelo en (xh,yh), el punto ubicado al borde
-    %                 de la zona íntima de Hall de la persona MÁS ALEJADA
-    %                 del centro geométrico del grupo (la más "expuesta"),
-    %                 proyectado hacia AFUERA del grupo. Mismo principio
-    %                 que usa Individual_Group_Model.m. NOTA: este cálculo
-    %                 dinámico de h NO está en el paper (que define
-    %                 Z_corte como una constante fija, Sección 4.4.1); es
-    %                 un aporte posterior de este trabajo.
+    %   op controla cómo se obtiene "h" (== Z_corte, nivel de corte de la
+    %   zona grupal):
+    %     op == 1  -> H OPTIMIZADO POR SECCIÓN (aporte de esta variante,
+    %                 no está en el paper ni en la versión original de
+    %                 Paco_Model_paper.m): para cada sección angular j se
+    %                 evalúa la gaussiana de esa MISMA sección
+    %                 (sigma_xj(j), sigma_yj(j)) en el punto ubicado al
+    %                 borde de su propia zona íntima de Hall (radio
+    %                 d_interpolado(j) + Dh, en la dirección angular de
+    %                 la sección), proyectado hacia AFUERA del grupo.
+    %                 Mismo principio que el (xh,yh) de la persona más
+    %                 expuesta que usa Paco_Model_paper.m/
+    %                 Individual_Group_Model.m, pero generalizado a las
+    %                 n_secciones en vez de a una sola persona. El
+    %                 resultado, "h", es un VECTOR (1 x n_secciones): la
+    %                 superficie de corte ya no es un plano paralelo a
+    %                 XY, sino que sigue la forma de la gaussiana
+    %                 seccionada.
     %     op ~= 1  -> h usa un valor fijo por defecto (ver PARÁMETROS DEL
     %                 MODELO más abajo), equivalente al Z_corte constante
-    %                 del paper.
+    %                 del paper (plano paralelo a XY, igual que en
+    %                 Paco_Model_paper.m).
     %   theta_xy (orientación de cada persona) se recibe por consistencia
     %   de firma con Modelo.m; este modelo no la usa: su orientación de
     %   grupo sale de orientacion_vec (alpha_ref, Ec. 14-15), no de la
@@ -57,6 +71,7 @@ function [xrot, yrot, zrot, h] = Paco_Model_paper(x, y, theta_xy, op)
         yrot = [];
         zrot = [];
         h = [];
+        Dcorte = [];
         return;
     end
 
@@ -221,59 +236,52 @@ function [xrot, yrot, zrot, h] = Paco_Model_paper(x, y, theta_xy, op)
     % 11.7: rotación inversa)
     [xrot, yrot, zrot] = rotar_gaussiana(Xg, Yg, Zg, rot, Xcg, Ycg);
 
-    % ================== APORTE DE ESTE TRABAJO (no en el paper) ==================
-    % h = densidad grupal evaluada en (xh,yh): el punto ubicado al borde
-    % de la zona proxémica íntima de Hall de la persona MÁS ALEJADA del
-    % centro geométrico del grupo (la más "expuesta" del grupo), sobre el
-    % eje que la une con ese centro, proyectado hacia AFUERA del grupo: se
-    % extiende la posición de esa persona alejándola del centro, nunca
-    % acercándola. Mismo principio que Individual_Group_Model.m. El paper
-    % (Sección 4.4.1) solo define Z_corte como una constante fija; este
-    % cálculo dinámico de h es una extensión posterior de este trabajo.
-    % Persona más alejada del centro del grupo. NOTA: este argmax es
-    % discreto y puede hacer saltar (xh,yh) -y por tanto h- de un cuadro a
-    % otro si dos personas están casi empatadas en distancia (ver la misma
-    % nota en Individual_Group_Model.m).
-    distAlCentro = hypot(x - Xcg, y - Ycg);
-    [~, idxFar] = max(distAlCentro);
-    xf = x(idxFar);
-    yf = y(idxFar);
+    % ================== APORTE DE ESTA VARIANTE (H OPTIMIZADO) ==================
+    % Generaliza el "punto al borde de la zona íntima de la persona más
+    % expuesta" (usado en Paco_Model_paper.m) a CADA sección angular: en
+    % vez de una sola persona, cada sección j tiene su propio punto de
+    % referencia, en la misma dirección angular que la sección
+    % (angulo_actual(j) = j*Delta_gamma, el mismo ángulo interno -antes de
+    % la rotación inversa- que usa el bucle que llena sigma_xj/sigma_yj),
+    % a un radio d_interpolado(j) + Dh.
+    %
+    % d_interpolado(j) se recupera de sigma_xj sin necesidad de
+    % interpolar d_i aparte: como sigma_xj es la interpolación lineal de
+    % sigma_Mx = d_i + sigma_min (Ec. 4), y sigma_min es constante, restar
+    % sigma_min a la interpolación ya interpolada de sigma_Mx da
+    % exactamente la interpolación de d_i (la interpolación lineal
+    % conmuta con un corrimiento constante).
+    d_interp = sigma_xj - sigma_min; % d_i interpolado por sección (Ec. 4 invertida)
+    r_ref = d_interp + Dh;           % radio de referencia por sección (borde zona íntima + margen, hacia afuera)
+    angulo_secciones = (1:n_secciones) * Delta_gamma; % mismo ángulo interno usado al llenar sigma_xj/sigma_yj
 
-    dirx = xf - Xcg; % del centro hacia esa persona (sentido "hacia afuera")
-    diry = yf - Ycg;
-    distFromCentroid = distAlCentro(idxFar);
+    % Punto de referencia de cada sección, ya en el sistema interno
+    % (relativo a Xcg,Ycg, antes de la rotación inversa) -no requiere
+    % deshacer ninguna rotación, a diferencia del cálculo de una sola
+    % persona en Paco_Model_paper.m, porque ya se está iterando
+    % directamente en el mismo sistema angular que indexa sigma_xj/sigma_yj.
+    dx_ref = r_ref .* cosd(angulo_secciones);
+    dy_ref = r_ref .* sind(angulo_secciones);
 
-    if distFromCentroid < eps
-        % Todas las personas coinciden con el centro del grupo (p.ej. un
-        % único integrante): no hay una dirección definida hacia afuera,
-        % se usa +X por defecto.
-        ux = 1; uy = 0;
-    else
-        ux = dirx / distFromCentroid;
-        uy = diry / distFromCentroid;
-    end
-
-    xh = xf + Dh * ux;
-    yh = yf + Dh * uy;
+    % Ec. 1 evaluada en el punto de referencia de cada sección, con las
+    % varianzas de esa misma sección: h_section(j) es el "Z_corte" propio
+    % de la sección j. Vector 1 x n_secciones: superficie de corte con
+    % forma, no un plano paralelo a XY.
+    h_section = exp(-(dx_ref.^2) ./ (2 .* sigma_xj.^2) - (dy_ref.^2) ./ (2 .* sigma_yj.^2));
 
     if op == 1
-        % La gaussiana final está rotada por "rot" alrededor de
-        % (Xcg,Ycg) respecto a la que realmente define sigma_xj/sigma_yj
-        % (ver rotar_gaussiana.m: aplica, en efecto, una rotación de
-        % -rot). Para evaluar el modelo en (xh,yh) hay que deshacer
-        % esa rotación (aplicar +rot) antes de mirar el ángulo y las
-        % sigmas.
-        angInv = deg2rad(rot);
-        xhq = cos(angInv)*(xh - Xcg) - sin(angInv)*(yh - Ycg) + Xcg;
-        yhq = sin(angInv)*(xh - Xcg) + cos(angInv)*(yh - Ycg) + Ycg;
-
-        alpha_h = mod(rad2deg(atan2(yhq - Ycg, xhq - Xcg)), 360);
-        idx_h = max(1, min(n_secciones, ceil(alpha_h / Delta_gamma)));
-        sigma_xk_h = sigma_xj(idx_h);
-        sigma_yk_h = sigma_yj(idx_h);
-
-        h = exp(-(xhq - Xcg)^2 / (2 * sigma_xk_h^2) - (yhq - Ycg)^2 / (2 * sigma_yk_h^2));
+        h = h_section; % h optimizado por sección (vector)
+        h_grid = reshape(h_section(idx_gk), size(Zg));
     else
-        h = Z_corte_default;
+        h = Z_corte_default; % plano paralelo a XY, igual que Paco_Model_paper.m
+        h_grid = h; % escalar: se expande por broadcasting al restar de Zg
     end
+
+    % Dcorte = Zg - h_por_sección: su curva de nivel 0 es exactamente el
+    % borde de corte (plano si h es escalar, con forma si h es un vector
+    % por sección). Como rotar_gaussiana solo mueve las coordenadas (Xg,Yg)
+    % y no altera el valor Z de cada punto (ver rotar_gaussiana.m: Zrot =
+    % zz sin cambios), Dcorte ya corresponde índice a índice con
+    % (xrot,yrot) sin necesidad de una segunda rotación.
+    Dcorte = Zg - h_grid;
 end
