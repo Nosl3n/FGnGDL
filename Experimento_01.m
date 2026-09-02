@@ -3,8 +3,8 @@ addpath(fullfile(raizProyecto,'FUNCTIONS'));
 addpath(fullfile(raizProyecto,'MODELOS'));
 % ================= PARÁMETROS EDITABLES DEL EXPERIMENTO =================
 % Posición inicial de cada persona (m). Cada elemento representa una persona.
-x = [2.5, 4, 3.5, 8, 8, 7, 8];  % <-- editar
-y = [3, 2.5, 3, 6, 7, 5, 6];   % <-- editar
+x = [2.5, 4.5, 3.5, 8, 7, 7, 8];  % <-- editar
+y = [3.5, 2, 3.5, 6, 7, 5, 4];   % <-- editar
 theta_ini = [30, 25, 45, 90, 150, 180, 200]; % orientación inicial (grados) <-- editar
 speed_ini = [0.03, 0.03, 0.03, 0.03, 0.03, 0.03, 0.03]; % velocidad inicial (m/cuadro) <-- editar
 
@@ -14,7 +14,7 @@ min_speed = 0.01; % velocidad mínima permitida (m/cuadro)
 max_speed = 0.05; % velocidad máxima permitida (m/cuadro)
 home_pull = 0.02; % aceleración de retorno: a = -home_pull*(posicion - posicion_inicial)
                   % unidades: m/cuadro^2; 0 desactiva el retorno a la posición inicial
-mo = 1;           % modelo grupal: 1-Paco, 2-De_Sousa, 3-Individual_Group
+mo = 5;           % modelo grupal: 1-Paco, 2-De_Sousa, 3-Individual_Group
 op = 0;           % Optimizacion del "h" op = 1, activado; op = 0, desactivado
 graf = 1;         % 0: ocultar/excluir zonas individuales; 1: dibujar/incluir zonas individuales
 % Aceptar vectores fila o columna y trabajar internamente con vectores fila.
